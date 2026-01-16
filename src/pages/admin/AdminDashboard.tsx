@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { AppShell } from "../../components/layout/AppShell";
 
 import { Card, CardContent } from "../../components/ui/Card";
@@ -131,7 +130,6 @@ function BarList({
   Dashboard
 ========================= */
 export default function AdminDashboard() {
-  const navigate = useNavigate();
 
   // Filtro “resumo”
   const [dataFiltro, setDataFiltro] = useState<string>(hojeYYYYMMDD());
@@ -240,22 +238,8 @@ export default function AdminDashboard() {
     return points;
   }, [insights]);
 
-  // 2) Horários mais usados (top 8)
-  const topHorarios = useMemo(() => {
-    const freq = new Map<string, number>();
-    insights.forEach((a) => {
-      const h = (a.horarioInicio ?? "").slice(0, 5);
-      if (!h) return;
-      freq.set(h, (freq.get(h) ?? 0) + 1);
-    });
 
-    return Array.from(freq.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([label, value]) => ({ label, value }));
-  }, [insights]);
-
-  // 3) Serviços mais “vendidos” (top 8)
+  // 2) Serviços mais “vendidos” (top 8)
   const topServicos = useMemo(() => {
     const freq = new Map<string, number>();
     insights.forEach((a) => {
@@ -271,7 +255,7 @@ export default function AdminDashboard() {
       .map(([label, value]) => ({ label, value }));
   }, [insights]);
 
-  // 4) Formas de pagamento (top 6) — se não tiver campos, cai em “Não informado”
+  // 3) Formas de pagamento (top 6) — se não tiver campos, cai em “Não informado”
   const topPagamentos = useMemo(() => {
     const freq = new Map<string, number>();
 
