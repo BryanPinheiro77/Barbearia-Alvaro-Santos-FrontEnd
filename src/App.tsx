@@ -12,6 +12,7 @@ import AdminHorarios from "./pages/admin/AdminHorarios";
 import Register from "./pages/cliente/Register";
 import ClienteHistorico from "./pages/cliente/ClienteHistorico";
 import AdminRelatorios from "./pages/admin/AdminRelatorios";
+import Index from "./pages/home";
 
 
 export default function App() {
@@ -33,6 +34,8 @@ export default function App() {
 />
 
 <Route path="/register" element={<Register />} />
+
+<Route path="/" element={<Index/>} />
 
         {/* Cliente */}
         <Route
