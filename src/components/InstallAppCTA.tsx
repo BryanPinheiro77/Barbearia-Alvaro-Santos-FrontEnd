@@ -45,7 +45,7 @@ export default function InstallAppCTA() {
     return (
       <div className="card p-8">
         <div className="tag">App</div>
-        <h3 className="font-display text-3xl mt-3">Instala o app no teu telemóvel</h3>
+        <h3 className="font-display text-3xl mt-3">Instalar o app no seu celular</h3>
         <p className="text-white/70 mt-3">
           Fica na tela inicial e abre como app (sem navegador).
         </p>

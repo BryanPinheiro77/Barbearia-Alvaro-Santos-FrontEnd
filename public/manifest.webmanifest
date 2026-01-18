@@ -1,7 +1,7 @@
 {
   "name": "Barbearia Alvaro Santos",
   "short_name": "Barbearia",
-  "start_url": "/",
+  "start_url": "/login",
   "scope": "/",
   "display": "standalone",
   "background_color": "#000000",

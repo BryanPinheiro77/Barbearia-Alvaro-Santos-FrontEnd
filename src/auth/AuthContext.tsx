@@ -2,7 +2,7 @@ import { createContext, useContext, useState } from "react";
 
 type UserType = "CLIENTE" | "ADMIN";
 
-interface AuthData {
+export interface AuthData {
   id: number;
   token: string;
   nome: string;
@@ -17,11 +17,26 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
+function readAuthFromStorage(): AuthData | null {
+  const stored = localStorage.getItem("auth");
+  if (!stored) return null;
+
+  try {
+    const parsed = JSON.parse(stored) as AuthData;
+    // validações mínimas para evitar lixo no storage
+    if (!parsed?.token || !parsed?.tipo) {
+      localStorage.removeItem("auth");
+      return null;
+    }
+    return parsed;
+  } catch {
+    localStorage.removeItem("auth");
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthData | null>(() => {
-    const stored = localStorage.getItem("auth");
-    return stored ? JSON.parse(stored) : null;
-  });
+  const [user, setUser] = useState<AuthData | null>(() => readAuthFromStorage());
 
   function login(data: AuthData) {
     localStorage.setItem("auth", JSON.stringify(data));
