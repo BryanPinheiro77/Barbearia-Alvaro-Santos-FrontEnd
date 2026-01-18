@@ -1,20 +1,15 @@
 import React from "react";
 
-export function Card({ className = "", ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={[
-        "bg-white border rounded-xl shadow-sm",
-        className,
-      ].join(" ")}
-      {...props}
-    />
-  );
+export function Card({
+  className = "",
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={["card", className].join(" ")} {...props} />;
 }
 
 export function CardContent({
   className = "",
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={["p-4", className].join(" ")} {...props} />;
+  return <div className={["p-5 md:p-6", className].join(" ")} {...props} />;
 }

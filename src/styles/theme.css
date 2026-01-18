@@ -1,0 +1,180 @@
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap");
+
+/* Variáveis de tema (opcional, mas ajuda a manter padrão) */
+:root {
+  --gold: #d9a441;
+  --gold-2: #f3d27a;
+  --bg: #050505;
+  --text: #f3f0e8;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.font-display {
+  font-family: "Playfair Display", serif;
+}
+
+/* ===== Helpers do layout ===== */
+.container-page {
+  width: 100%;
+  max-width: 1152px; /* ~72rem */
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/* Badge/tag */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(217, 164, 65, 0.95);
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.title-gradient {
+  background: linear-gradient(90deg, var(--gold), var(--gold-2), var(--gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Card padrão */
+.card {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 24px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* Hover lift (opcional) */
+.hover-lift {
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 22px 55px rgba(0, 0, 0, 0.45);
+  border-color: rgba(217, 164, 65, 0.35);
+}
+
+/* Botões */
+.btn-gold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  font-weight: 600;
+  background: linear-gradient(90deg, var(--gold), var(--gold-2), var(--gold));
+  color: #0b0b0b;
+  transition: transform 220ms ease, box-shadow 220ms ease, filter 220ms ease;
+}
+.btn-gold:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 40px rgba(217, 164, 65, 0.22);
+  filter: brightness(1.03);
+}
+
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  font-weight: 600;
+  border: 1px solid rgba(217, 164, 65, 0.55);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.92);
+  transition: transform 220ms ease, background 220ms ease, border-color 220ms ease;
+}
+.btn-outline:hover {
+  transform: translateY(-1px);
+  background: rgba(217, 164, 65, 0.10);
+  border-color: rgba(217, 164, 65, 0.85);
+}
+
+/* Inputs padrão (pra você reutilizar nas páginas) */
+.input-dark {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 12px 14px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.92);
+  outline: none;
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.input-dark::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.input-dark:focus {
+  border-color: rgba(217, 164, 65, 0.40);
+  box-shadow: 0 0 0 4px rgba(217, 164, 65, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.label-dark {
+  display: block;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.70);
+  margin-bottom: 6px;
+}
+
+/* Texto auxiliar */
+.text-muted {
+  color: rgba(255, 255, 255, 0.70);
+}
+
+/* Bloco de erro (padrão) */
+.alert-error {
+  border-radius: 14px;
+  border: 1px solid rgba(239, 68, 68, 0.30);
+  background: rgba(239, 68, 68, 0.10);
+  padding: 12px;
+  color: rgba(254, 202, 202, 0.95);
+  font-size: 14px;
+}
+
+/* Select / option no tema escuro */
+.select-dark {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.92);
+  padding: 12px 14px;
+  font-size: 14px;
+  outline: none;
+}
+
+.select-dark:focus {
+  border-color: rgba(217,164,65,0.45);
+  box-shadow: 0 0 0 3px rgba(217,164,65,0.18);
+}
+
+/* Alguns browsers respeitam, outros não (menu do SO) */
+.select-dark option {
+  background: #0b0b0b;
+  color: #f3f0e8;
+}

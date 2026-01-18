@@ -16,6 +16,10 @@ function hhmm(h: string) {
   return h?.length >= 5 ? h.substring(0, 5) : h;
 }
 
+const timeInputClass =
+  "rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none " +
+  "focus:border-[#d9a441]/40 focus:ring-2 focus:ring-[#d9a441]/20 transition";
+
 export function HorarioCard({ item, onAtivar, onDesativar, onDeletar, onEditar }: Props) {
   const [editando, setEditando] = useState(false);
   const [valor, setValor] = useState(hhmm(item.horario));
@@ -36,14 +40,14 @@ export function HorarioCard({ item, onAtivar, onDesativar, onDeletar, onEditar }
       <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <p className="font-semibold">{hhmm(item.horario)}</p>
+            <p className="font-semibold text-white/90">{hhmm(item.horario)}</p>
             <Badge tone={item.ativo ? "success" : "danger"}>
               {item.ativo ? "Ativo" : "Inativo"}
             </Badge>
           </div>
 
           {!editando && (
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-white/60 mt-1">
               Ajuste rapidamente o horário ou altere o status.
             </p>
           )}
@@ -55,7 +59,7 @@ export function HorarioCard({ item, onAtivar, onDesativar, onDeletar, onEditar }
               type="time"
               value={valor}
               onChange={(e) => setValor(e.target.value)}
-              className="border rounded-lg px-3 py-2"
+              className={timeInputClass}
             />
 
             <div className="flex gap-2">

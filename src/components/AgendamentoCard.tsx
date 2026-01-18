@@ -12,7 +12,6 @@ interface Props {
 function formatarPagamento(ag: Agendamento) {
   const meio = ag.formaPagamentoTipo;
   const modo = ag.formaPagamentoModo;
-
   if (!meio || !modo) return "Não informado";
   const modoLabel = modo === "ONLINE" ? "Online" : "Presencial";
   return `${meio} (${modoLabel})`;
@@ -36,7 +35,6 @@ export function AgendamentoCard({ agendamento, onConcluir, onCancelar }: Props) 
       : "warning";
 
   const tonePago: "success" | "warning" = agendamento.pago ? "success" : "warning";
-
   const podeAcao = agendamento.status === "AGENDADO" && (onConcluir || onCancelar);
 
   return (
@@ -44,27 +42,27 @@ export function AgendamentoCard({ agendamento, onConcluir, onCancelar }: Props) 
       <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            <p className="font-semibold truncate">
+            <p className="font-semibold truncate text-white/90">
               {agendamento.clienteNome || "Cliente"}
             </p>
             <Badge tone={toneStatus}>{agendamento.status}</Badge>
             <Badge tone={tonePago}>{agendamento.pago ? "Pago" : "Não pago"}</Badge>
           </div>
 
-          <p className="text-sm text-gray-800 break-words">{servicosLabel}</p>
+          <p className="text-sm text-white/80 break-words">{servicosLabel}</p>
 
-          <p className="text-sm text-gray-600 mt-2">
+          <p className="text-sm text-white/60 mt-2">
             {agendamento.data} às {agendamento.horarioInicio}
           </p>
 
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-            <p className="text-gray-700">
-              <span className="text-gray-500">Pagamento:</span>{" "}
+            <p className="text-white/75">
+              <span className="text-white/50">Pagamento:</span>{" "}
               {formatarPagamento(agendamento)}
             </p>
 
-            <p className="text-gray-700">
-              <span className="text-gray-500">Total:</span> R$ {total.toFixed(2)}
+            <p className="text-white/75">
+              <span className="text-white/50">Total:</span> R$ {total.toFixed(2)}
             </p>
           </div>
         </div>

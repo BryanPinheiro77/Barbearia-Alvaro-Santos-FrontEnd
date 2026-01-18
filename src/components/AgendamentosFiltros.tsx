@@ -1,9 +1,4 @@
-type PeriodoTipo =
-  | "HOJE"
-  | "SEMANA"
-  | "MES"
-  | "DIA_ESPECIFICO"
-  | "INTERVALO";
+type PeriodoTipo = "HOJE" | "SEMANA" | "MES" | "DIA_ESPECIFICO" | "INTERVALO";
 
 type Props = {
   periodo: PeriodoTipo;
@@ -25,6 +20,12 @@ type Props = {
   onLimpar: () => void;
 };
 
+const inputClass =
+  "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none " +
+  "focus:border-[#d9a441]/40 focus:ring-2 focus:ring-[#d9a441]/20 transition";
+
+const labelClass = "block text-xs text-white/60 mb-1";
+
 export function AgendamentosFiltros({
   periodo,
   status,
@@ -42,13 +43,12 @@ export function AgendamentosFiltros({
   onLimpar,
 }: Props) {
   return (
-    <div className="bg-white border rounded-2xl p-4 mb-4 animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
+    <div className="card mb-4 animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* PERÍODO */}
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Período</label>
+          <label className={labelClass}>Período</label>
           <select
-            className="border rounded-lg px-3 py-2 w-full"
+            className={inputClass}
             value={periodo}
             onChange={(e) => onPeriodoChange(e.target.value as PeriodoTipo)}
           >
@@ -60,11 +60,10 @@ export function AgendamentosFiltros({
           </select>
         </div>
 
-        {/* STATUS */}
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Status</label>
+          <label className={labelClass}>Status</label>
           <select
-            className="border rounded-lg px-3 py-2 w-full"
+            className={inputClass}
             value={status}
             onChange={(e) => onStatusChange(e.target.value)}
           >
@@ -75,48 +74,45 @@ export function AgendamentosFiltros({
           </select>
         </div>
 
-        {/* CLIENTE */}
         <div className="sm:col-span-2">
-          <label className="block text-xs text-gray-500 mb-1">Cliente</label>
+          <label className={labelClass}>Cliente</label>
           <input
-            className="border rounded-lg px-3 py-2 w-full"
+            className={inputClass}
             placeholder="Buscar por nome"
             value={clienteBusca}
             onChange={(e) => onClienteBuscaChange(e.target.value)}
           />
         </div>
 
-        {/* DIA ESPECÍFICO */}
         {periodo === "DIA_ESPECIFICO" && (
           <div className="sm:col-span-2 lg:col-span-2">
-            <label className="block text-xs text-gray-500 mb-1">Data</label>
+            <label className={labelClass}>Data</label>
             <input
               type="date"
-              className="border rounded-lg px-3 py-2 w-full"
+              className={inputClass}
               value={dataUnica}
               onChange={(e) => onDataUnicaChange(e.target.value)}
             />
           </div>
         )}
 
-        {/* INTERVALO */}
         {periodo === "INTERVALO" && (
           <>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Início</label>
+              <label className={labelClass}>Início</label>
               <input
                 type="date"
-                className="border rounded-lg px-3 py-2 w-full"
+                className={inputClass}
                 value={inicio}
                 onChange={(e) => onInicioChange(e.target.value)}
               />
             </div>
 
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Fim</label>
+              <label className={labelClass}>Fim</label>
               <input
                 type="date"
-                className="border rounded-lg px-3 py-2 w-full"
+                className={inputClass}
                 value={fim}
                 onChange={(e) => onFimChange(e.target.value)}
               />
@@ -126,16 +122,10 @@ export function AgendamentosFiltros({
       </div>
 
       <div className="mt-4 flex flex-col sm:flex-row gap-2">
-        <button
-          onClick={onAplicar}
-          className="bg-black text-white px-4 py-2 rounded-lg flex-1 hover:opacity-95 active:scale-[0.99]"
-        >
+        <button onClick={onAplicar} className="btn-gold flex-1 justify-center">
           Aplicar
         </button>
-        <button
-          onClick={onLimpar}
-          className="border px-4 py-2 rounded-lg flex-1 hover:bg-gray-50 active:scale-[0.99]"
-        >
+        <button onClick={onLimpar} className="btn-outline flex-1 justify-center">
           Limpar
         </button>
       </div>

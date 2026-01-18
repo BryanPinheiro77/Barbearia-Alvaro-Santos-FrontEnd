@@ -4,11 +4,33 @@ import { useNavigate } from "react-router-dom";
 import { AppShell } from "../../components/layout/AppShell";
 import * as AgendamentoApi from "../../api/agendamentos";
 
-import { Card, CardContent } from "../../components/ui/Card";
-import { Button } from "../../components/ui/Button";
-import { Badge } from "../../components/ui/Badge";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { AnimatedList } from "../../components/ui/AnimatedList";
+
+function brl(v: number) {
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function parseDataLocal(yyyyMmDd: string) {
+  const [y, m, d] = yyyyMmDd.split("-").map(Number);
+  return new Date(y, m - 1, d, 0, 0, 0, 0);
+}
+
+function inicioDeHoje() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+}
+
+function statusPill(status: string) {
+  if (status === "CANCELADO") return "border-red-500/25 bg-red-500/10 text-red-200";
+  return "border-white/10 bg-white/5 text-white/80";
+}
+
+function pagoPill(pago: boolean) {
+  return pago
+    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-200"
+    : "border-amber-500/25 bg-amber-500/10 text-amber-200";
+}
 
 export default function ClienteHistorico() {
   const navigate = useNavigate();
@@ -36,16 +58,6 @@ export default function ClienteHistorico() {
     carregar();
   }, []);
 
-  function parseDataLocal(yyyyMmDd: string) {
-    const [y, m, d] = yyyyMmDd.split("-").map(Number);
-    return new Date(y, m - 1, d, 0, 0, 0, 0);
-  }
-
-  function inicioDeHoje() {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-  }
-
   const historicoOrdenado = useMemo(() => {
     return [...agendamentos].sort((a, b) => {
       const da = a.data ? parseDataLocal(a.data).getTime() : 0;
@@ -59,13 +71,10 @@ export default function ClienteHistorico() {
   }, [agendamentos]);
 
   async function cancelarAgendamento(id: number) {
-    // Sem confirm: cancela direto (mas mantendo as regras)
     try {
       setErro(null);
       setCancelandoId(id);
-
       await AgendamentoApi.cancelarAgendamento(id);
-
       setAgendamentos((prev) =>
         prev.map((a) => (a.id === id ? { ...a, status: "CANCELADO" } : a))
       );
@@ -79,126 +88,136 @@ export default function ClienteHistorico() {
 
   return (
     <AppShell>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-        <h1 className="text-2xl font-bold">Histórico</h1>
+      <div className="container-page py-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+          <div>
+            <span className="tag">Cliente</span>
+            <h1 className="font-display text-3xl mt-3">Histórico</h1>
+            <p className="text-white/70 mt-2">Todos os seus agendamentos, incluindo cancelados.</p>
+          </div>
 
-        <Button variant="secondary" onClick={() => navigate("/cliente")}>
-          Voltar
-        </Button>
-      </div>
-
-      {erro && (
-        <div className="mb-4 bg-red-100 border border-red-300 p-3 rounded">
-          {erro}
+          <button className="btn-outline" onClick={() => navigate("/cliente")}>
+            Voltar
+          </button>
         </div>
-      )}
 
-      {/* Skeleton */}
-      {loading && (
-        <div className="space-y-3">
-          {[1, 2, 3].map((n) => (
-            <Card key={n}>
-              <CardContent className="flex justify-between items-start gap-4">
-                <div className="flex-1">
-                  <Skeleton className="h-4 w-44 mb-2" />
-                  <Skeleton className="h-3 w-56 mb-2" />
-                  <Skeleton className="h-3 w-28" />
+        {erro && <div className="alert-error mb-4">{erro}</div>}
+
+        {loading && (
+          <div className="space-y-3">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="card">
+                <div className="flex justify-between items-start gap-4">
+                  <div className="flex-1">
+                    <Skeleton className="h-4 w-44 mb-2" />
+                    <Skeleton className="h-3 w-56 mb-2" />
+                    <Skeleton className="h-3 w-28" />
+                  </div>
+
+                  <div className="w-28 flex flex-col items-end gap-2">
+                    <Skeleton className="h-6 w-20 rounded-full" />
+                    <Skeleton className="h-6 w-20 rounded-full" />
+                    <Skeleton className="h-9 w-24 rounded-lg mt-2" />
+                  </div>
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
 
-                <div className="w-28 flex flex-col items-end gap-2">
-                  <Skeleton className="h-6 w-20 rounded-full" />
-                  <Skeleton className="h-6 w-20 rounded-full" />
-                  <Skeleton className="h-9 w-24 rounded-lg mt-2" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {!loading && historicoOrdenado.length === 0 && (
-        <Card className="animate-[fadeInUp_.22s_ease-out_forwards] opacity-0">
-          <CardContent>
-            <p className="text-sm text-gray-700">Você ainda não possui agendamentos.</p>
-            <div className="mt-3">
-              <Button variant="primary" onClick={() => navigate("/cliente/novo-agendamento")}>
+        {!loading && historicoOrdenado.length === 0 && (
+          <div className="card animate-[fadeInUp_.22s_ease-out_forwards] opacity-0">
+            <p className="text-white/70 text-sm">Você ainda não possui agendamentos.</p>
+            <div className="mt-4">
+              <button className="btn-gold" onClick={() => navigate("/cliente/novo-agendamento")}>
                 Fazer um agendamento
-              </Button>
+              </button>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        )}
 
-      {!loading && historicoOrdenado.length > 0 && (
-        <AnimatedList>
-          {historicoOrdenado.map((a) => {
-            const servicosLabel =
-              a.servicos?.length ? a.servicos.map((s) => s.nome).join(" + ") : "Serviço";
+        {!loading && historicoOrdenado.length > 0 && (
+          <AnimatedList>
+            {historicoOrdenado.map((a) => {
+              const servicosLabel =
+                a.servicos?.length ? a.servicos.map((s) => s.nome).join(" + ") : "Serviço";
 
-            const total =
-              a.servicos?.length ? a.servicos.reduce((acc, s) => acc + (s.preco ?? 0), 0) : 0;
+              const total =
+                a.servicos?.length ? a.servicos.reduce((acc, s) => acc + (s.preco ?? 0), 0) : 0;
 
-            const hoje0 = inicioDeHoje();
-            const dataAg = a.data ? parseDataLocal(a.data) : null;
-            const naoPassou = dataAg ? dataAg.getTime() >= hoje0.getTime() : false;
+              const hoje0 = inicioDeHoje();
+              const dataAg = a.data ? parseDataLocal(a.data) : null;
+              const naoPassou = dataAg ? dataAg.getTime() >= hoje0.getTime() : false;
 
-            const podeCancelar = a.status !== "CANCELADO" && !a.pago && naoPassou;
-            const estaCancelando = cancelandoId === a.id;
+              const podeCancelar = a.status !== "CANCELADO" && !a.pago && naoPassou;
+              const estaCancelando = cancelandoId === a.id;
 
-            const toneStatus: "neutral" | "danger" =
-              a.status === "CANCELADO" ? "danger" : "neutral";
+              return (
+                <div key={a.id} className="card">
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="min-w-0">
+                      <p className="font-semibold truncate">{servicosLabel}</p>
 
-            const tonePago: "success" | "warning" = a.pago ? "success" : "warning";
+                      <p className="text-sm text-white/70 mt-1">
+                        {a.data} às {a.horarioInicio}
+                      </p>
 
-            return (
-              <Card key={a.id} className="overflow-hidden">
-                <CardContent className="flex justify-between items-start gap-4">
-                  <div className="min-w-0">
-                    <p className="font-semibold truncate">{servicosLabel}</p>
+                      <p className="text-sm text-white/55 mt-1">Total: {brl(total)}</p>
 
-                    <p className="text-sm text-gray-700">
-                      {a.data} às {a.horarioInicio}
-                    </p>
-
-                    <p className="text-sm text-gray-500">Total: R$ {total.toFixed(2)}</p>
-
-                    {a.status === "CANCELADO" && (
-                      <p className="text-xs text-red-700 mt-2">Agendamento cancelado</p>
-                    )}
-                  </div>
-
-                  <div className="text-right shrink-0">
-                    <div className="flex flex-col items-end gap-1">
-                      <Badge tone={toneStatus}>{a.status}</Badge>
-                      <Badge tone={tonePago}>{a.pago ? "Pago" : "Não pago"}</Badge>
+                      {a.status === "CANCELADO" && (
+                        <p className="text-xs text-red-300 mt-3">Agendamento cancelado</p>
+                      )}
                     </div>
 
-                    <div className="mt-3">
-                      <Button
-                        variant="danger"
-                        onClick={() => cancelarAgendamento(a.id)}
-                        disabled={!podeCancelar || estaCancelando}
-                        loading={estaCancelando}
-                        title={
-                          a.pago
-                            ? "Não é possível cancelar um agendamento pago."
-                            : a.status === "CANCELADO"
-                            ? "Agendamento já cancelado."
-                            : !naoPassou
-                            ? "Não é possível cancelar um agendamento passado."
-                            : "Cancelar agendamento"
-                        }
-                      >
-                        Cancelar
-                      </Button>
+                    <div className="text-right shrink-0">
+                      <div className="flex flex-col items-end gap-2">
+                        <span
+                          className={[
+                            "text-xs px-3 py-1 rounded-full border",
+                            statusPill(a.status),
+                          ].join(" ")}
+                        >
+                          {a.status}
+                        </span>
+
+                        <span
+                          className={[
+                            "text-xs px-3 py-1 rounded-full border",
+                            pagoPill(!!a.pago),
+                          ].join(" ")}
+                        >
+                          {a.pago ? "Pago" : "Não pago"}
+                        </span>
+                      </div>
+
+                      <div className="mt-4">
+                        <button
+                          className={[
+                            "btn-outline w-full justify-center",
+                            !podeCancelar || estaCancelando ? "opacity-60 pointer-events-none" : "",
+                          ].join(" ")}
+                          onClick={() => cancelarAgendamento(a.id)}
+                          title={
+                            a.pago
+                              ? "Não é possível cancelar um agendamento pago."
+                              : a.status === "CANCELADO"
+                              ? "Agendamento já cancelado."
+                              : !naoPassou
+                              ? "Não é possível cancelar um agendamento passado."
+                              : "Cancelar agendamento"
+                          }
+                        >
+                          {estaCancelando ? "Cancelando..." : "Cancelar"}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </AnimatedList>
-      )}
+                </div>
+              );
+            })}
+          </AnimatedList>
+        )}
+      </div>
     </AppShell>
   );
 }

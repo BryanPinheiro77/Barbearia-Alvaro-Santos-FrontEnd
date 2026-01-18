@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import type { RefObject } from "react";
 
 import { AppShell } from "../../components/layout/AppShell";
-import { Card, CardContent } from "../../components/ui/Card";
-import { Button } from "../../components/ui/Button";
 import { Step } from "../../components/ui/Step";
 import { CalendarPicker } from "../../components/ui/CalendarPicker";
-import type { RefObject } from "react";
 
 import { useAuth } from "../../auth/AuthContext";
 import * as ServicosApi from "../../api/servicos";
@@ -16,6 +14,10 @@ import * as PagamentosApi from "../../api/pagamentos";
 import * as AgendamentosApi from "../../api/agendamentos";
 
 type CheckoutStatus = "IDLE" | "REDIRECIONANDO" | "AGUARDANDO_PAGAMENTO" | "PAGO";
+
+function brl(v: number) {
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
 
 export default function NovoAgendamento() {
   const { user } = useAuth();
@@ -87,13 +89,13 @@ export default function NovoAgendamento() {
   }
 
   function scrollToRef(ref: RefObject<HTMLDivElement | null>) {
-  const el = ref.current;
-  if (!el) return;
+    const el = ref.current;
+    if (!el) return;
 
-  window.setTimeout(() => {
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, 80);
-}
+    window.setTimeout(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  }
 
   // Carregar serviços
   useEffect(() => {
@@ -145,8 +147,7 @@ export default function NovoAgendamento() {
   const step4Done = step3Done;
   const step5Done = step4Done;
 
-  const podeConfirmar =
-    !!user && data && horarioSelecionado && servicosSelecionados.length > 0;
+  const podeConfirmar = !!user && data && horarioSelecionado && servicosSelecionados.length > 0;
 
   // Auto-scroll quando os steps liberarem
   const prevStep1Done = useRef(false);
@@ -180,7 +181,7 @@ export default function NovoAgendamento() {
     );
   }
 
-  // NOVO: buscar horários automaticamente quando tiver serviços + data
+  // buscar horários automaticamente quando tiver serviços + data
   useEffect(() => {
     async function carregarHorariosAuto() {
       if (!step2Done) return;
@@ -193,7 +194,6 @@ export default function NovoAgendamento() {
 
         const resp = await listarHorariosDisponiveis(data, servicosSelecionados);
 
-        // se já houve outra requisição depois, ignora
         if (reqId !== horariosReqIdRef.current) return;
 
         setHorarios(resp.horarios || []);
@@ -210,7 +210,6 @@ export default function NovoAgendamento() {
       }
     }
 
-    // pequeno debounce pra evitar disparos múltiplos em mudanças rápidas
     const t = window.setTimeout(() => {
       carregarHorariosAuto();
     }, 180);
@@ -279,8 +278,7 @@ export default function NovoAgendamento() {
       const estrategia: PagamentosApi.TipoPagamentoStrategy =
         pagamentoTipo === "PIX" ? "PIX_DIRECT" : "CHECKOUT_PRO";
 
-      const tipoPagamento: "PIX" | "CARTAO" =
-        pagamentoTipo === "PIX" ? "PIX" : "CARTAO";
+      const tipoPagamento: "PIX" | "CARTAO" = pagamentoTipo === "PIX" ? "PIX" : "CARTAO";
 
       const pay = await PagamentosApi.criarPagamento({
         agendamentoId: ag.id,
@@ -361,31 +359,30 @@ export default function NovoAgendamento() {
 
   return (
     <AppShell>
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <h1 className="text-2xl font-bold">Novo Agendamento</h1>
-        <Button variant="secondary" onClick={() => navigate("/cliente")}>
-          Voltar
-        </Button>
-      </div>
+      <div className="container-page py-6">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <span className="tag">Cliente</span>
+            <h1 className="font-display text-3xl mt-3">Novo agendamento</h1>
+            <p className="text-white/70 mt-2">Selecione serviços, data, horário e pagamento.</p>
+          </div>
 
-      {erro && (
-        <div className="mb-4 bg-red-100 border border-red-300 p-3 rounded animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
-          {erro}
+          <button className="btn-outline" onClick={() => navigate("/cliente")}>
+            Voltar
+          </button>
         </div>
-      )}
 
-      <Card>
-        <CardContent>
+        {erro && (
+          <div className="alert-error mb-4 animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
+            {erro}
+          </div>
+        )}
+
+        <div className="card">
           {/* STEP 1 */}
-          <Step
-            step={1}
-            title="Serviços"
-            subtitle="Selecione um ou mais serviços."
-            open={true}
-            done={step1Done}
-          >
+          <Step step={1} title="Serviços" subtitle="Selecione um ou mais serviços." open={true} done={step1Done}>
             {loadingServicos ? (
-              <p className="text-sm text-gray-600">Carregando...</p>
+              <p className="text-sm text-white/70">Carregando...</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {servicos.map((s) => {
@@ -395,17 +392,17 @@ export default function NovoAgendamento() {
                       key={s.id}
                       onClick={() => toggleServico(s.id)}
                       className={[
-                        "border rounded-xl p-3 text-left transition-colors",
+                        "rounded-2xl border p-4 text-left transition",
                         ativo
-                          ? "border-black bg-gray-50"
-                          : "border-gray-200 hover:bg-gray-50",
+                          ? "border-[#d9a441]/50 bg-[#d9a441]/10"
+                          : "border-white/10 bg-white/5 hover:bg-white/10",
                       ].join(" ")}
                     >
-                      <p className="font-medium">{s.nome}</p>
-                      <p className="text-sm text-gray-600">
-                        {s.duracaoMinutos} min • R$ {s.preco.toFixed(2)}
+                      <p className="font-medium text-white/90">{s.nome}</p>
+                      <p className="text-sm text-white/65 mt-1">
+                        {s.duracaoMinutos} min • {brl(s.preco)}
                       </p>
-                      {ativo && <p className="text-xs text-gray-500 mt-2">Selecionado</p>}
+                      {ativo && <p className="text-xs text-[#d9a441] mt-3">Selecionado</p>}
                     </button>
                   );
                 })}
@@ -413,8 +410,8 @@ export default function NovoAgendamento() {
             )}
 
             {resumo.lista.length > 0 && (
-              <div className="mt-3 text-sm">
-                Total: <strong>R$ {resumo.total.toFixed(2)}</strong> • {resumo.duracao} min
+              <div className="mt-4 text-sm text-white/75">
+                Total: <strong className="text-white">{brl(resumo.total)}</strong> • {resumo.duracao} min
               </div>
             )}
           </Step>
@@ -428,11 +425,9 @@ export default function NovoAgendamento() {
             done={step2Done}
             containerRef={step2Ref}
           >
-            <CalendarPicker
-              value={data}
-              onChange={(v) => setData(v)}
-              minDate={new Date()}
-            />
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+              <CalendarPicker value={data} onChange={(v) => setData(v)} minDate={new Date()} />
+            </div>
           </Step>
 
           {/* STEP 3 */}
@@ -446,42 +441,37 @@ export default function NovoAgendamento() {
           >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
               {horarioSelecionado ? (
-                <p className="text-sm text-gray-600">
-                  Selecionado: <strong>{horarioSelecionado}</strong>
+                <p className="text-sm text-white/70">
+                  Selecionado: <strong className="text-white">{horarioSelecionado}</strong>
                 </p>
               ) : (
-                <p className="text-sm text-gray-600">
-                  Selecione um horário abaixo.
-                </p>
+                <p className="text-sm text-white/70">Selecione um horário abaixo.</p>
               )}
 
-              {loadingHorarios && (
-                <p className="text-sm text-gray-500">Carregando horários...</p>
-              )}
+              {loadingHorarios && <p className="text-sm text-white/55">Carregando horários...</p>}
             </div>
 
             {!loadingHorarios && horarios.length === 0 && (
-  <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-    <p className="text-sm font-medium">Sem horários disponíveis</p>
-    <p className="text-sm text-gray-600 mt-1">
-      Selecione outro dia para ver novos horários.
-    </p>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="text-sm font-medium text-white/90">Sem horários disponíveis</p>
+                <p className="text-sm text-white/65 mt-2">
+                  Selecione outro dia para ver novos horários.
+                </p>
 
-    <div className="mt-3">
-      <Button
-        variant="secondary"
-        onClick={() => {
-          setData("");
-          setHorarios([]);
-          setHorarioSelecionado("");
-        }}
-      >
-        Escolher outra data
-      </Button>
-    </div>
-  </div>
-)}
-
+                <div className="mt-4">
+                  <button
+                    className="btn-outline"
+                    onClick={() => {
+                      setData("");
+                      setHorarios([]);
+                      setHorarioSelecionado("");
+                    }}
+                  >
+                    Escolher outra data
+                  </button>
+                </div>
+              </div>
+            )}
 
             {horarios.length > 0 && (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -492,10 +482,10 @@ export default function NovoAgendamento() {
                       key={h}
                       onClick={() => setHorarioSelecionado(h)}
                       className={[
-                        "border rounded-lg px-2 py-2 text-sm transition-colors",
+                        "rounded-xl border px-2 py-2 text-sm transition",
                         ativo
-                          ? "border-black bg-gray-50 font-semibold"
-                          : "border-gray-200 hover:bg-gray-50",
+                          ? "border-[#d9a441]/55 bg-[#d9a441]/10 text-white font-semibold"
+                          : "border-white/10 bg-white/5 hover:bg-white/10 text-white/85",
                       ].join(" ")}
                     >
                       {h}
@@ -517,14 +507,13 @@ export default function NovoAgendamento() {
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-gray-500">Tipo</label>
+                <label className="label-dark">Tipo</label>
+                {/* AQUI: select estilizado para tema escuro */}
                 <select
-                  className="border rounded-lg px-3 py-2 w-full"
+                  className="select-dark"
                   value={pagamentoTipo}
                   onChange={(e) =>
-                    setPagamentoTipo(
-                      e.target.value as CriarAgendamentoApi.FormaPagamentoTipo
-                    )
+                    setPagamentoTipo(e.target.value as CriarAgendamentoApi.FormaPagamentoTipo)
                   }
                 >
                   <option value="PIX">PIX</option>
@@ -534,14 +523,13 @@ export default function NovoAgendamento() {
               </div>
 
               <div>
-                <label className="text-xs text-gray-500">Modo</label>
+                <label className="label-dark">Modo</label>
+                {/* AQUI: select estilizado para tema escuro */}
                 <select
-                  className="border rounded-lg px-3 py-2 w-full"
+                  className="select-dark"
                   value={pagamentoModo}
                   onChange={(e) =>
-                    setPagamentoModo(
-                      e.target.value as CriarAgendamentoApi.FormaPagamentoModo
-                    )
+                    setPagamentoModo(e.target.value as CriarAgendamentoApi.FormaPagamentoModo)
                   }
                 >
                   <option value="PAGAR_NA_HORA">Pagar na hora</option>
@@ -551,54 +539,56 @@ export default function NovoAgendamento() {
             </div>
 
             {pagamentoModo === "ONLINE" && (
-              <div className="mt-4">
+              <div className="mt-5">
                 {checkoutStatus === "IDLE" && (
-                  <Button
-                    variant="primary"
+                  <button
+                    className={["btn-gold", !podeConfirmar ? "opacity-60 pointer-events-none" : ""].join(" ")}
                     onClick={iniciarPagamentoOnline}
                     disabled={!podeConfirmar}
                   >
                     Ir para pagamento
-                  </Button>
+                  </button>
                 )}
 
                 {checkoutStatus === "REDIRECIONANDO" && (
-                  <p className="text-sm text-gray-600 mt-2">Preparando pagamento...</p>
+                  <p className="text-sm text-white/70 mt-2">Preparando pagamento...</p>
                 )}
 
                 {checkoutStatus === "AGUARDANDO_PAGAMENTO" && (
-                  <div className="mt-3 border rounded-xl p-3">
-                    <p className="font-medium mb-2">Aguardando confirmação do pagamento...</p>
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <p className="font-medium mb-2 text-white/90">
+                      Aguardando confirmação do pagamento...
+                    </p>
 
                     {checkoutUrl && (
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-white/65">
                         Checkout aberto em nova aba. Volte aqui e aguarde.
                       </p>
                     )}
 
                     {pixQrBase64 && (
-                      <div className="mt-3">
+                      <div className="mt-4">
                         <p className="text-sm font-medium mb-2">PIX</p>
 
                         <div className="flex flex-col sm:flex-row gap-3 items-start">
                           <img
                             src={`data:image/png;base64,${pixQrBase64}`}
                             alt="QR Code PIX"
-                            className="w-52 h-52 border rounded-lg"
+                            className="w-52 h-52 border border-white/10 rounded-2xl bg-white"
                           />
 
                           {pixCopiaCola && (
                             <div className="w-full">
-                              <p className="text-xs text-gray-600 mb-1">Copia e cola</p>
+                              <p className="text-xs text-white/60 mb-2">Copia e cola</p>
                               <textarea
-                                className="border rounded-lg p-2 w-full text-xs"
+                                className="w-full rounded-2xl border border-white/10 bg-black/40 p-3 text-xs text-white/85"
                                 rows={4}
                                 value={pixCopiaCola}
                                 readOnly
                               />
-                              <div className="mt-2">
-                                <Button
-                                  variant="secondary"
+                              <div className="mt-3">
+                                <button
+                                  className="btn-outline"
                                   onClick={async () => {
                                     try {
                                       await navigator.clipboard.writeText(pixCopiaCola);
@@ -606,7 +596,7 @@ export default function NovoAgendamento() {
                                   }}
                                 >
                                   Copiar código
-                                </Button>
+                                </button>
                               </div>
                             </div>
                           )}
@@ -615,30 +605,30 @@ export default function NovoAgendamento() {
                     )}
 
                     {pagamentoId && (
-                      <p className="mt-2 text-xs text-gray-500">Pagamento #{pagamentoId}</p>
+                      <p className="mt-3 text-xs text-white/50">Pagamento #{pagamentoId}</p>
                     )}
 
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button variant="secondary" onClick={verificarStatusAgora}>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button className="btn-outline" onClick={verificarStatusAgora}>
                         Verificar status
-                      </Button>
+                      </button>
 
-                      <Button
-                        variant="ghost"
+                      <button
+                        className="btn-outline"
                         onClick={() => {
                           limparPagamentoUi();
                           setErro(null);
                         }}
                       >
                         Voltar
-                      </Button>
+                      </button>
                     </div>
                   </div>
                 )}
 
                 {checkoutStatus === "PAGO" && (
-                  <div className="mt-3 border rounded-xl p-3">
-                    <p className="font-medium">Pagamento confirmado. Redirecionando...</p>
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <p className="font-medium text-white/90">Pagamento confirmado. Redirecionando...</p>
                   </div>
                 )}
               </div>
@@ -655,7 +645,7 @@ export default function NovoAgendamento() {
             containerRef={step5Ref}
           >
             <select
-              className="border rounded-lg px-3 py-2 w-full sm:max-w-sm"
+              className="select-dark sm:max-w-sm"
               value={lembretePersonalizado ? "PERSONALIZADO" : lembreteMinutos}
               onChange={(e) => {
                 if (e.target.value === "PERSONALIZADO") {
@@ -676,37 +666,39 @@ export default function NovoAgendamento() {
             </select>
 
             {lembretePersonalizado && (
-              <div className="mt-3">
-                <label className="block text-sm mb-1">Quantos minutos antes?</label>
+              <div className="mt-4">
+                <label className="label-dark">Quantos minutos antes?</label>
                 <input
                   type="number"
                   min={1}
-                  className="border rounded-lg px-3 py-2 w-40"
+                  className="input-dark w-40"
                   value={lembreteMinutos}
                   onChange={(e) => setLembreteMinutos(Number(e.target.value))}
                 />
               </div>
             )}
 
-            <div className="mt-5">
-              <Button
-                variant="primary"
+            <div className="mt-6">
+              <button
+                className={[
+                  "btn-gold",
+                  !podeConfirmar || pagamentoModo === "ONLINE" ? "opacity-60 pointer-events-none" : "",
+                ].join(" ")}
                 onClick={confirmarAgendamentoPagarNaHora}
                 disabled={!podeConfirmar || pagamentoModo === "ONLINE"}
               >
                 Finalizar agendamento
-              </Button>
+              </button>
 
               {pagamentoModo === "ONLINE" && (
-                <p className="mt-2 text-sm text-gray-600">
-                  Para pagamento online, use “Ir para pagamento”. O agendamento será confirmado
-                  quando o pagamento for aprovado.
+                <p className="mt-3 text-sm text-white/70">
+                  Para pagamento online, use “Ir para pagamento”. O agendamento será confirmado quando o pagamento for aprovado.
                 </p>
               )}
             </div>
           </Step>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </AppShell>
   );
 }

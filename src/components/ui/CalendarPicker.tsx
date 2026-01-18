@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 
 type Props = {
-  value: string;               // "YYYY-MM-DD"
+  value: string; // "YYYY-MM-DD"
   onChange: (value: string) => void;
-  minDate?: Date;              // datas anteriores ficam desabilitadas
+  minDate?: Date;
 };
 
 function pad2(n: number) {
@@ -37,14 +37,23 @@ export function CalendarPicker({ value, onChange, minDate }: Props) {
   }, [value]);
 
   const initialMonth = selected ?? today;
-
   const [viewYear, setViewYear] = useState(initialMonth.getFullYear());
   const [viewMonth, setViewMonth] = useState(initialMonth.getMonth()); // 0..11
 
   const monthLabel = useMemo(() => {
     const meses = [
-      "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-      "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+      "Janeiro",
+      "Fevereiro",
+      "Março",
+      "Abril",
+      "Maio",
+      "Junho",
+      "Julho",
+      "Agosto",
+      "Setembro",
+      "Outubro",
+      "Novembro",
+      "Dezembro",
     ];
     return `${meses[viewMonth]} ${viewYear}`;
   }, [viewMonth, viewYear]);
@@ -53,23 +62,17 @@ export function CalendarPicker({ value, onChange, minDate }: Props) {
     const first = new Date(viewYear, viewMonth, 1);
     const last = new Date(viewYear, viewMonth + 1, 0);
 
-    // domingo=0 ... sábado=6
     const startWeekDay = first.getDay();
     const totalDays = last.getDate();
 
-    // grid de 6 semanas (42 células) para não “pular” layout
     const cells: Array<{ date: Date | null; ymd?: string }> = [];
-
-    // espaços antes do dia 1
     for (let i = 0; i < startWeekDay; i++) cells.push({ date: null });
 
-    // dias do mês
     for (let day = 1; day <= totalDays; day++) {
       const d = startOfDay(new Date(viewYear, viewMonth, day));
       cells.push({ date: d, ymd: toYmd(d) });
     }
 
-    // completa até 42
     while (cells.length < 42) cells.push({ date: null });
 
     return cells;
@@ -92,22 +95,22 @@ export function CalendarPicker({ value, onChange, minDate }: Props) {
   const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
   return (
-    <div className="border rounded-xl p-3 bg-white">
+    <div className="card p-4">
       <div className="flex items-center justify-between gap-2 mb-3">
         <button
           type="button"
           onClick={prevMonth}
-          className="border rounded-lg px-3 py-2 text-sm hover:bg-gray-50"
+          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/85 hover:bg-white/10 transition"
         >
           {"<"}
         </button>
 
-        <div className="text-sm font-semibold">{monthLabel}</div>
+        <div className="text-sm font-semibold text-white/90">{monthLabel}</div>
 
         <button
           type="button"
           onClick={nextMonth}
-          className="border rounded-lg px-3 py-2 text-sm hover:bg-gray-50"
+          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/85 hover:bg-white/10 transition"
         >
           {">"}
         </button>
@@ -115,7 +118,7 @@ export function CalendarPicker({ value, onChange, minDate }: Props) {
 
       <div className="grid grid-cols-7 gap-1 mb-2">
         {weekDays.map((w) => (
-          <div key={w} className="text-xs text-gray-500 text-center py-1">
+          <div key={w} className="text-xs text-white/55 text-center py-1">
             {w}
           </div>
         ))}
@@ -123,9 +126,7 @@ export function CalendarPicker({ value, onChange, minDate }: Props) {
 
       <div className="grid grid-cols-7 gap-1">
         {days.map((cell, idx) => {
-          if (!cell.date) {
-            return <div key={idx} className="h-10" />;
-          }
+          if (!cell.date) return <div key={idx} className="h-10" />;
 
           const d = cell.date;
           const disabled = d.getTime() < min.getTime();
@@ -139,12 +140,14 @@ export function CalendarPicker({ value, onChange, minDate }: Props) {
               disabled={disabled}
               onClick={() => cell.ymd && onChange(cell.ymd)}
               className={[
-                "h-10 rounded-lg text-sm border transition-colors",
+                "h-10 rounded-xl text-sm border transition-all",
                 disabled
-                  ? "border-gray-100 text-gray-300 cursor-not-allowed"
-                  : "border-gray-200 hover:bg-gray-50",
-                isSelected ? "border-black bg-gray-50 font-semibold" : "",
-                isToday && !isSelected ? "ring-1 ring-gray-200" : "",
+                  ? "border-white/5 bg-white/0 text-white/20 cursor-not-allowed"
+                  : "border-white/10 bg-white/5 text-white/85 hover:bg-white/10 hover:border-[#d9a441]/25",
+                isSelected
+                  ? "border-[#d9a441]/60 bg-[#d9a441]/15 text-[#f3d27a] font-semibold"
+                  : "",
+                isToday && !isSelected ? "ring-1 ring-white/10" : "",
               ].join(" ")}
               title={cell.ymd}
             >
@@ -155,8 +158,9 @@ export function CalendarPicker({ value, onChange, minDate }: Props) {
       </div>
 
       {value && (
-        <p className="text-xs text-gray-500 mt-3">
-          Data selecionada: <span className="font-medium text-gray-700">{value}</span>
+        <p className="text-xs text-white/55 mt-3">
+          Data selecionada:{" "}
+          <span className="font-semibold text-white/85">{value}</span>
         </p>
       )}
     </div>
