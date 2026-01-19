@@ -301,26 +301,6 @@ export default function NovoAgendamento() {
       }
     }
 
-    useEffect(() => {
-  (async () => {
-    const pid = localStorage.getItem("ultimoPagamentoId");
-    if (!pid) return;
-
-    try {
-      const st = await PagamentosApi.buscarPagamentoPorId(Number(pid));
-      if (st.status === "PAGO") {
-        setCheckoutStatus("PAGO");
-        salvarDraft({ status: "PAGO" });
-        scrollToRef(step5Ref);
-      }
-    } catch {
-      // ignora
-    }
-  })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
-
-
     const t = window.setTimeout(() => {
       carregarHorariosAuto();
     }, 180);
