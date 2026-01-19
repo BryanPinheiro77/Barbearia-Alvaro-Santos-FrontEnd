@@ -12,12 +12,7 @@ import { AgendamentoCard } from "../../components/AgendamentoCard";
 import { Card, CardContent } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 
-type PeriodoTipo =
-  | "HOJE"
-  | "SEMANA"
-  | "MES"
-  | "DIA_ESPECIFICO"
-  | "INTERVALO";
+type PeriodoTipo = "HOJE" | "SEMANA" | "MES" | "DIA_ESPECIFICO" | "INTERVALO";
 
 type FiltrosApi = {
   status?: string;
@@ -82,6 +77,7 @@ export default function AdminAgendamentos() {
       inicio: p.inicio,
       fim: p.fim,
     };
+
     if (!filtros.status) delete filtros.status;
     if (!filtros.inicio) delete filtros.inicio;
     if (!filtros.fim) delete filtros.fim;
@@ -125,7 +121,6 @@ export default function AdminAgendamentos() {
     setDataUnica("");
     setInicio("");
     setFim("");
-    // carrega com padrão
     setTimeout(() => carregarAgendamentos(), 0);
   }
 
@@ -154,21 +149,21 @@ export default function AdminAgendamentos() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
           <h1 className="text-2xl font-bold">Agendamentos</h1>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted">
             Filtre por período, status e cliente.
           </p>
         </div>
 
-        <Button variant="secondary" onClick={carregarAgendamentos} loading={loading}>
+        <Button
+          variant="secondary"
+          onClick={carregarAgendamentos}
+          loading={loading}
+        >
           Recarregar
         </Button>
       </div>
 
-      {erro && (
-        <div className="mb-4 bg-red-100 border border-red-300 p-3 rounded animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
-          {erro}
-        </div>
-      )}
+      {erro && <div className="alert-error mb-4">{erro}</div>}
 
       <AgendamentosFiltros
         periodo={periodo}
@@ -190,7 +185,7 @@ export default function AdminAgendamentos() {
       {loading && (
         <Card>
           <CardContent>
-            <p className="text-sm text-gray-700">Carregando agendamentos...</p>
+            <p className="text-sm text-muted">Carregando agendamentos...</p>
           </CardContent>
         </Card>
       )}
@@ -198,7 +193,7 @@ export default function AdminAgendamentos() {
       {!loading && !erro && agendamentosFiltrados.length === 0 && (
         <Card className="animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
           <CardContent>
-            <p className="text-sm text-gray-700">Nenhum agendamento encontrado.</p>
+            <p className="text-sm text-muted">Nenhum agendamento encontrado.</p>
           </CardContent>
         </Card>
       )}

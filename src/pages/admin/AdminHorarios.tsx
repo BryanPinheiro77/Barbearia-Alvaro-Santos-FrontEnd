@@ -135,7 +135,7 @@ export default function AdminHorarios() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
           <h1 className="text-2xl font-bold">Horários</h1>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted">
             Crie, edite, ative/desative e organize os horários disponíveis.
           </p>
         </div>
@@ -145,25 +145,20 @@ export default function AdminHorarios() {
         </Button>
       </div>
 
-      {erro && (
-        <div className="mb-4 bg-red-100 border border-red-300 p-3 rounded animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
-          {erro}
-        </div>
-      )}
+      {erro && <div className="alert-error mb-4">{erro}</div>}
 
-      {/* Criar novo horário */}
       <Card className="mb-4 animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
         <CardContent>
           <p className="font-semibold mb-3">Criar novo horário</p>
 
           <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
             <div className="flex flex-col">
-              <label className="text-xs text-gray-500 mb-1">Horário</label>
+              <label className="label-dark">Horário</label>
               <input
                 type="time"
                 value={novoHorario}
                 onChange={(e) => setNovoHorario(e.target.value)}
-                className="border rounded-lg px-3 py-2"
+                className="input-dark"
               />
             </div>
 
@@ -183,7 +178,7 @@ export default function AdminHorarios() {
       {loading && (
         <Card>
           <CardContent>
-            <p className="text-sm text-gray-700">Carregando horários...</p>
+            <p className="text-sm text-muted">Carregando horários...</p>
           </CardContent>
         </Card>
       )}
@@ -191,7 +186,7 @@ export default function AdminHorarios() {
       {!loading && horariosOrdenados.length === 0 && (
         <Card className="animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
           <CardContent>
-            <p className="text-sm text-gray-700">Nenhum horário cadastrado.</p>
+            <p className="text-sm text-muted">Nenhum horário cadastrado.</p>
           </CardContent>
         </Card>
       )}

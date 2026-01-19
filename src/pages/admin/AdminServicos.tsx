@@ -127,7 +127,7 @@ export default function AdminServicos() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
           <h1 className="text-2xl font-bold">Serviços</h1>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted">
             Cadastre serviços, ajuste preço/duração e controle ativos/inativos.
           </p>
         </div>
@@ -137,11 +137,7 @@ export default function AdminServicos() {
         </Button>
       </div>
 
-      {erro && (
-        <div className="mb-4 bg-red-100 border border-red-300 p-3 rounded animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
-          {erro}
-        </div>
-      )}
+      {erro && <div className="alert-error mb-4">{erro}</div>}
 
       {/* FORM */}
       <Card className="mb-6 animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
@@ -151,25 +147,23 @@ export default function AdminServicos() {
               {editId ? `Editar serviço #${editId}` : "Novo serviço"}
             </h2>
 
-            {editId && (
-              <Badge tone="warning">Modo edição</Badge>
-            )}
+            {editId && <Badge tone="warning">Modo edição</Badge>}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Nome</label>
+              <label className="label-dark">Nome</label>
               <input
-                className="w-full border rounded-lg px-3 py-2"
+                className="input-dark"
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
               />
             </div>
 
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Preço</label>
+              <label className="label-dark">Preço</label>
               <input
-                className="w-full border rounded-lg px-3 py-2"
+                className="input-dark"
                 value={preco}
                 onChange={(e) => setPreco(e.target.value)}
                 placeholder="Ex: 35"
@@ -178,9 +172,9 @@ export default function AdminServicos() {
             </div>
 
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Duração (min)</label>
+              <label className="label-dark">Duração (min)</label>
               <input
-                className="w-full border rounded-lg px-3 py-2"
+                className="input-dark"
                 value={duracao}
                 onChange={(e) => setDuracao(e.target.value)}
                 placeholder="Ex: 30"
@@ -207,13 +201,13 @@ export default function AdminServicos() {
       <Card className="mb-4 animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
         <CardContent className="flex flex-col md:flex-row gap-3 md:items-center">
           <input
-            className="border rounded-lg px-3 py-2 flex-1"
+            className="input-dark"
             placeholder="Buscar por nome..."
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
           />
 
-          <label className="flex items-center gap-2 text-sm text-gray-700">
+          <label className="flex items-center gap-2 text-sm text-muted">
             <input
               type="checkbox"
               checked={mostrarInativos}
@@ -227,7 +221,7 @@ export default function AdminServicos() {
       {loading && (
         <Card>
           <CardContent>
-            <p className="text-sm text-gray-700">Carregando serviços...</p>
+            <p className="text-sm text-muted">Carregando serviços...</p>
           </CardContent>
         </Card>
       )}
@@ -235,7 +229,7 @@ export default function AdminServicos() {
       {!loading && listaFiltrada.length === 0 && (
         <Card className="animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
           <CardContent>
-            <p className="text-sm text-gray-700">Nenhum serviço encontrado.</p>
+            <p className="text-sm text-muted">Nenhum serviço encontrado.</p>
           </CardContent>
         </Card>
       )}
@@ -256,7 +250,7 @@ export default function AdminServicos() {
                   </Badge>
                 </div>
 
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-muted mt-1">
                   R$ {Number(s.preco).toFixed(2)} • {s.duracaoMinutos} min
                 </p>
               </div>

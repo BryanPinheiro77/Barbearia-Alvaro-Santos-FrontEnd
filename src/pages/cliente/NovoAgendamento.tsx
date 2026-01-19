@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import type { RefObject } from "react";
 
 import { AppShell } from "../../components/layout/AppShell";
@@ -19,9 +19,16 @@ function brl(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function isMobileDevice() {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(ua);
+}
+
 export default function NovoAgendamento() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // SERVIÇOS
   const [servicos, setServicos] = useState<ServicosApi.Servico[]>([]);
@@ -44,6 +51,7 @@ export default function NovoAgendamento() {
   const [pixQrBase64, setPixQrBase64] = useState<string | null>(null);
   const [pixCopiaCola, setPixCopiaCola] = useState<string | null>(null);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const [agendamentoOnlineId, setAgendamentoOnlineId] = useState<number | null>(null);
   const pollingRef = useRef<number | null>(null);
 
   // LEMBRETE
@@ -72,6 +80,47 @@ export default function NovoAgendamento() {
   // Para evitar corrida de requisições de horários
   const horariosReqIdRef = useRef(0);
 
+  // Draft/localStorage (para voltar do checkout mantendo estado)
+  const DRAFT_KEY = "novoAgendamentoDraft";
+
+  function salvarDraft(params?: {
+    agendamentoId?: number;
+    pagamentoId?: number;
+    checkoutUrl?: string | null;
+    status?: CheckoutStatus;
+  }) {
+    const draft = {
+      servicosSelecionados,
+      data,
+      horarioSelecionado,
+      pagamentoTipo,
+      pagamentoModo: "ONLINE" as CriarAgendamentoApi.FormaPagamentoModo,
+      lembreteMinutos,
+      lembretePersonalizado,
+      agendamentoOnlineId: params?.agendamentoId ?? agendamentoOnlineId,
+      pagamentoId: params?.pagamentoId ?? pagamentoId,
+      checkoutUrl: params?.checkoutUrl ?? checkoutUrl,
+      checkoutStatus: params?.status ?? checkoutStatus,
+      atualizadoEm: Date.now(),
+    };
+
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  }
+
+  function carregarDraft(): any | null {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
+  function limparDraft() {
+    localStorage.removeItem(DRAFT_KEY);
+  }
+
   function pararPolling() {
     if (pollingRef.current) {
       window.clearInterval(pollingRef.current);
@@ -85,6 +134,7 @@ export default function NovoAgendamento() {
     setPixQrBase64(null);
     setPixCopiaCola(null);
     setCheckoutUrl(null);
+    setAgendamentoOnlineId(null);
     pararPolling();
   }
 
@@ -113,6 +163,41 @@ export default function NovoAgendamento() {
     })();
   }, []);
 
+  // Se voltar do pagamento com ?resume=1, restaura o draft e vai pro step 5
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const resume = url.searchParams.get("resume");
+    if (resume !== "1") return;
+
+    const draft = carregarDraft();
+    if (!draft) return;
+
+    setServicosSelecionados(draft.servicosSelecionados ?? []);
+    setData(draft.data ?? "");
+    setHorarioSelecionado(draft.horarioSelecionado ?? "");
+
+    setPagamentoTipo(draft.pagamentoTipo ?? "PIX");
+    setPagamentoModo("ONLINE");
+
+    setLembreteMinutos(typeof draft.lembreteMinutos === "number" ? draft.lembreteMinutos : 30);
+    setLembretePersonalizado(!!draft.lembretePersonalizado);
+
+    setAgendamentoOnlineId(draft.agendamentoOnlineId ?? null);
+    setPagamentoId(draft.pagamentoId ?? null);
+    setCheckoutUrl(draft.checkoutUrl ?? null);
+
+    // PagamentoRetorno só manda resume=1 se estiver PAGO.
+    setCheckoutStatus("PAGO");
+
+    // remove param pra não repetir
+    url.searchParams.delete("resume");
+    window.history.replaceState({}, "", url.toString());
+
+    // foca no step 5
+    scrollToRef(step5Ref);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key]);
+
   // Resets quando muda serviços ou data
   useEffect(() => {
     setHorarios([]);
@@ -121,7 +206,10 @@ export default function NovoAgendamento() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [servicosSelecionados, data]);
 
+  // Resets quando muda tipo/modo/horário (mas não quebra o retorno pago)
   useEffect(() => {
+    // Se já está PAGO, não faz reset automático (evita perder estado ao voltar do checkout)
+    if (checkoutStatus === "PAGO") return;
     limparPagamentoUi();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagamentoTipo, pagamentoModo, horarioSelecionado]);
@@ -148,6 +236,9 @@ export default function NovoAgendamento() {
   const step5Done = step4Done;
 
   const podeConfirmar = !!user && data && horarioSelecionado && servicosSelecionados.length > 0;
+
+  const podeFinalizar =
+    podeConfirmar && (pagamentoModo !== "ONLINE" || checkoutStatus === "PAGO");
 
   // Auto-scroll quando os steps liberarem
   const prevStep1Done = useRef(false);
@@ -244,6 +335,15 @@ export default function NovoAgendamento() {
     }
   }
 
+  async function finalizarAgendamentoOnline() {
+    // aqui o "finalizar" é apenas encerrar o fluxo na UI (o agendamento já existe)
+    // se quiseres persistir lembrete no backend, aqui seria o ponto de chamar PATCH.
+    limparDraft();
+    localStorage.removeItem("ultimoPagamentoId");
+    localStorage.removeItem("ultimoAgendamentoId");
+    navigate("/cliente");
+  }
+
   async function iniciarPagamentoOnline() {
     if (!user) return;
 
@@ -278,7 +378,8 @@ export default function NovoAgendamento() {
       const estrategia: PagamentosApi.TipoPagamentoStrategy =
         pagamentoTipo === "PIX" ? "PIX_DIRECT" : "CHECKOUT_PRO";
 
-      const tipoPagamento: "PIX" | "CARTAO" = pagamentoTipo === "PIX" ? "PIX" : "CARTAO";
+      const tipoPagamento: "PIX" | "CARTAO" =
+        pagamentoTipo === "PIX" ? "PIX" : "CARTAO";
 
       const pay = await PagamentosApi.criarPagamento({
         agendamentoId: ag.id,
@@ -286,14 +387,39 @@ export default function NovoAgendamento() {
         estrategia,
       });
 
+      setAgendamentoOnlineId(ag.id);
       setPagamentoId(pay.pagamentoId);
       setPixQrBase64(pay.qrCodeBase64);
       setPixCopiaCola(pay.copiaCola);
       setCheckoutUrl(pay.checkoutUrl);
       setCheckoutStatus("AGUARDANDO_PAGAMENTO");
 
+      // Guarda para a rota de retorno
+      localStorage.setItem("ultimoPagamentoId", String(pay.pagamentoId));
+      localStorage.setItem("ultimoAgendamentoId", String(ag.id));
+
+      // Salva draft antes de sair do app
+      salvarDraft({
+        agendamentoId: ag.id,
+        pagamentoId: pay.pagamentoId,
+        checkoutUrl: pay.checkoutUrl,
+        status: "AGUARDANDO_PAGAMENTO",
+      });
+
       if (pay.checkoutUrl) {
-        window.open(pay.checkoutUrl, "_blank", "noopener,noreferrer");
+        const mobile = isMobileDevice();
+
+        if (mobile) {
+          window.location.assign(pay.checkoutUrl);
+          return;
+        }
+
+        const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
+        if (popup) {
+          popup.location.replace(pay.checkoutUrl);
+        } else {
+          window.location.assign(pay.checkoutUrl);
+        }
       }
 
       pararPolling();
@@ -304,7 +430,8 @@ export default function NovoAgendamento() {
           if (st.status === "PAGO") {
             setCheckoutStatus("PAGO");
             pararPolling();
-            navigate("/cliente");
+            salvarDraft({ status: "PAGO" });
+            scrollToRef(step5Ref);
             return;
           }
 
@@ -343,7 +470,8 @@ export default function NovoAgendamento() {
       if (st.status === "PAGO") {
         setCheckoutStatus("PAGO");
         pararPolling();
-        navigate("/cliente");
+        salvarDraft({ status: "PAGO" });
+        scrollToRef(step5Ref);
       } else if (st.status === "CANCELADO" || st.status === "FALHOU") {
         setErro(`Pagamento ${st.status}.`);
         setCheckoutStatus("IDLE");
@@ -380,7 +508,13 @@ export default function NovoAgendamento() {
 
         <div className="card">
           {/* STEP 1 */}
-          <Step step={1} title="Serviços" subtitle="Selecione um ou mais serviços." open={true} done={step1Done}>
+          <Step
+            step={1}
+            title="Serviços"
+            subtitle="Selecione um ou mais serviços."
+            open={true}
+            done={step1Done}
+          >
             {loadingServicos ? (
               <p className="text-sm text-white/70">Carregando...</p>
             ) : (
@@ -411,7 +545,8 @@ export default function NovoAgendamento() {
 
             {resumo.lista.length > 0 && (
               <div className="mt-4 text-sm text-white/75">
-                Total: <strong className="text-white">{brl(resumo.total)}</strong> • {resumo.duracao} min
+                Total: <strong className="text-white">{brl(resumo.total)}</strong> • {resumo.duracao}{" "}
+                min
               </div>
             )}
           </Step>
@@ -454,9 +589,7 @@ export default function NovoAgendamento() {
             {!loadingHorarios && horarios.length === 0 && (
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                 <p className="text-sm font-medium text-white/90">Sem horários disponíveis</p>
-                <p className="text-sm text-white/65 mt-2">
-                  Selecione outro dia para ver novos horários.
-                </p>
+                <p className="text-sm text-white/65 mt-2">Selecione outro dia para ver novos horários.</p>
 
                 <div className="mt-4">
                   <button
@@ -508,7 +641,6 @@ export default function NovoAgendamento() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="label-dark">Tipo</label>
-                {/* AQUI: select estilizado para tema escuro */}
                 <select
                   className="select-dark"
                   value={pagamentoTipo}
@@ -524,7 +656,6 @@ export default function NovoAgendamento() {
 
               <div>
                 <label className="label-dark">Modo</label>
-                {/* AQUI: select estilizado para tema escuro */}
                 <select
                   className="select-dark"
                   value={pagamentoModo}
@@ -556,13 +687,11 @@ export default function NovoAgendamento() {
 
                 {checkoutStatus === "AGUARDANDO_PAGAMENTO" && (
                   <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="font-medium mb-2 text-white/90">
-                      Aguardando confirmação do pagamento...
-                    </p>
+                    <p className="font-medium mb-2 text-white/90">Aguardando confirmação do pagamento...</p>
 
                     {checkoutUrl && (
                       <p className="text-sm text-white/65">
-                        Checkout aberto em nova aba. Volte aqui e aguarde.
+                        Checkout iniciado. Se você já pagou, volte aqui e clique em “Verificar status”.
                       </p>
                     )}
 
@@ -628,7 +757,7 @@ export default function NovoAgendamento() {
 
                 {checkoutStatus === "PAGO" && (
                   <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="font-medium text-white/90">Pagamento confirmado. Redirecionando...</p>
+                    <p className="font-medium text-white/90">Pagamento confirmado. Agora finalize o agendamento abaixo.</p>
                   </div>
                 )}
               </div>
@@ -644,6 +773,14 @@ export default function NovoAgendamento() {
             done={step5Done}
             containerRef={step5Ref}
           >
+            {pagamentoModo === "ONLINE" && checkoutStatus !== "PAGO" && (
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 mb-4">
+                <p className="text-sm text-white/75">
+                  Para continuar, conclua o pagamento online e depois volte aqui para finalizar o agendamento.
+                </p>
+              </div>
+            )}
+
             <select
               className="select-dark sm:max-w-sm"
               value={lembretePersonalizado ? "PERSONALIZADO" : lembreteMinutos}
@@ -656,6 +793,7 @@ export default function NovoAgendamento() {
                   setLembreteMinutos(Number(e.target.value));
                 }
               }}
+              disabled={pagamentoModo === "ONLINE" && checkoutStatus !== "PAGO"}
             >
               {lembretesPreDefinidos.map((l) => (
                 <option key={l.value} value={l.value}>
@@ -674,25 +812,29 @@ export default function NovoAgendamento() {
                   className="input-dark w-40"
                   value={lembreteMinutos}
                   onChange={(e) => setLembreteMinutos(Number(e.target.value))}
+                  disabled={pagamentoModo === "ONLINE" && checkoutStatus !== "PAGO"}
                 />
               </div>
             )}
 
             <div className="mt-6">
               <button
-                className={[
-                  "btn-gold",
-                  !podeConfirmar || pagamentoModo === "ONLINE" ? "opacity-60 pointer-events-none" : "",
-                ].join(" ")}
-                onClick={confirmarAgendamentoPagarNaHora}
-                disabled={!podeConfirmar || pagamentoModo === "ONLINE"}
+                className={["btn-gold", !podeFinalizar ? "opacity-60 pointer-events-none" : ""].join(" ")}
+                disabled={!podeFinalizar}
+                onClick={() => {
+                  if (pagamentoModo === "ONLINE") {
+                    finalizarAgendamentoOnline();
+                    return;
+                  }
+                  confirmarAgendamentoPagarNaHora();
+                }}
               >
                 Finalizar agendamento
               </button>
 
               {pagamentoModo === "ONLINE" && (
                 <p className="mt-3 text-sm text-white/70">
-                  Para pagamento online, use “Ir para pagamento”. O agendamento será confirmado quando o pagamento for aprovado.
+                  Para pagamento online, use “Ir para pagamento”. Após aprovado, selecione o lembrete e finalize.
                 </p>
               )}
             </div>

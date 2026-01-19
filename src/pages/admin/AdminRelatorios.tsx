@@ -32,23 +32,69 @@ function hojeYYYYMMDD() {
 }
 
 function rangeDoMes(refYYYYMMDD: string) {
-  // refYYYYMMDD: "2026-01-16" -> mês 01/2026
   const [yStr, mStr] = refYYYYMMDD.split("-");
   const y = Number(yStr);
-  const m = Number(mStr); // 1..12
+  const m = Number(mStr);
 
   const first = new Date(y, m - 1, 1);
-  const last = new Date(y, m, 0); // último dia do mês
+  const last = new Date(y, m, 0);
 
   const inicio = first.toISOString().split("T")[0];
   const fim = last.toISOString().split("T")[0];
   return { inicio, fim };
 }
 
-// Helpers (gráficos)
 function hhmm(h?: string) {
   if (!h) return "";
   return h.length >= 5 ? h.substring(0, 5) : h;
+}
+
+/* =========================
+   THEME dos gráficos (dark)
+========================= */
+
+const CHART_PALETTE = [
+  "var(--gold)",
+  "var(--gold-2)",
+  "#60A5FA", // azul
+  "#34D399", // verde
+  "#A78BFA", // roxo
+  "#F87171", // vermelho
+  "#22D3EE", // ciano
+  "#FB7185", // rosa
+];
+
+const CHART_AXIS_TICK = { fill: "rgba(255,255,255,0.70)", fontSize: 12 };
+const CHART_GRID_STROKE = "rgba(255,255,255,0.12)";
+
+const tooltipStyle = {
+  contentStyle: {
+    background: "rgba(10,10,10,0.92)",
+    border: "1px solid rgba(255,255,255,0.12)",
+    borderRadius: 12,
+    color: "rgba(255,255,255,0.92)",
+  },
+  itemStyle: { color: "rgba(255,255,255,0.92)" },
+  labelStyle: { color: "rgba(255,255,255,0.75)" },
+};
+
+// Garante 1 cor diferente para cada "key" dentro do conjunto atual (Top N)
+function buildUniqueColorMap(keys: string[]) {
+  const unique = Array.from(new Set(keys)).sort((a, b) => a.localeCompare(b));
+  const map: Record<string, string> = {};
+  unique.forEach((k, idx) => {
+    map[k] = CHART_PALETTE[idx % CHART_PALETTE.length];
+  });
+  return map;
+}
+
+// (opcional) hash para outras áreas; aqui usamos mais nos gráficos de pagamento (se quiser)
+function colorForKey(key: string) {
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  }
+  return CHART_PALETTE[hash % CHART_PALETTE.length];
 }
 
 export default function AdminRelatorios() {
@@ -78,7 +124,6 @@ export default function AdminRelatorios() {
       setLoading(true);
       setErro(null);
 
-      // Monta filtros para o BACK (admin)
       let filtros: AdminAgendamentosApi.FiltrosAgendamentoAdmin = {};
 
       if (status) filtros.status = status;
@@ -117,7 +162,7 @@ export default function AdminRelatorios() {
         Object.keys(filtros).length ? filtros : undefined
       );
 
-      // Filtro local por nome (não temos endpoint para “like” no back)
+      // Filtro local por nome
       const termo = clienteBusca.trim().toLowerCase();
       let filtrado = data;
 
@@ -127,7 +172,6 @@ export default function AdminRelatorios() {
         );
       }
 
-      // Ordena por data + horário
       filtrado.sort((a, b) => {
         const aKey = `${a.data ?? ""} ${a.horarioInicio ?? ""}`;
         const bKey = `${b.data ?? ""} ${b.horarioInicio ?? ""}`;
@@ -170,10 +214,6 @@ export default function AdminRelatorios() {
     return "neutral";
   }
 
-  /* =========================
-     GRÁFICOS (datasets)
-  ========================= */
-
   // 1) Linha: agendamentos por dia
   const chartAgendamentosPorDia = useMemo(() => {
     const map = new Map<string, number>();
@@ -208,7 +248,6 @@ export default function AdminRelatorios() {
     const map = new Map<string, number>();
 
     for (const a of agendamentos) {
-      // depende de o teu Agendamento retornar `servicos`
       const servs = (a as any).servicos ?? [];
       for (const s of servs) {
         const nome = (s?.nome ?? "").trim();
@@ -223,12 +262,17 @@ export default function AdminRelatorios() {
       .map(([name, value]) => ({ name, value }));
   }, [agendamentos]);
 
+  // mapa de cores único para Serviços (sem colisão)
+  const servicoColorMap = useMemo(() => {
+    const keys = chartServicosMaisUsados.map((x) => x.name);
+    return buildUniqueColorMap(keys);
+  }, [chartServicosMaisUsados]);
+
   // 4) Barras: formas de pagamento mais usadas (top 10)
   const chartFormasPagamento = useMemo(() => {
     const map = new Map<string, number>();
 
     for (const a of agendamentos) {
-      // depende de o teu Agendamento retornar esses campos
       const tipo = (a as any).formaPagamentoTipo ?? "";
       const modo = (a as any).formaPagamentoModo ?? "";
 
@@ -253,7 +297,7 @@ export default function AdminRelatorios() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
         <div>
           <h1 className="text-2xl font-bold">Relatórios</h1>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted">
             Filtros avançados + KPIs. Aqui entram gráficos e exportação.
           </p>
         </div>
@@ -268,11 +312,7 @@ export default function AdminRelatorios() {
         </div>
       </div>
 
-      {erro && (
-        <div className="mb-4 bg-red-100 border border-red-300 p-3 rounded animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
-          {erro}
-        </div>
-      )}
+      {erro && <div className="alert-error mb-4">{erro}</div>}
 
       {/* Filtros */}
       <Card className="mb-4 animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
@@ -281,9 +321,9 @@ export default function AdminRelatorios() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Período</label>
+              <label className="label-dark">Período</label>
               <select
-                className="border rounded-lg px-3 py-2 w-full"
+                className="select-dark"
                 value={periodo}
                 onChange={(e) => setPeriodo(e.target.value as PeriodoTipo)}
               >
@@ -295,12 +335,12 @@ export default function AdminRelatorios() {
 
             {(periodo === "DIA" || periodo === "MES") && (
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">
+                <label className="label-dark">
                   {periodo === "DIA" ? "Data" : "Referência do mês"}
                 </label>
                 <input
                   type="date"
-                  className="border rounded-lg px-3 py-2 w-full"
+                  className="input-dark"
                   value={dia}
                   onChange={(e) => setDia(e.target.value)}
                 />
@@ -308,21 +348,21 @@ export default function AdminRelatorios() {
             )}
 
             {periodo === "INTERVALO" && (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 md:col-span-1">
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Início</label>
+                  <label className="label-dark">Início</label>
                   <input
                     type="date"
-                    className="border rounded-lg px-3 py-2 w-full"
+                    className="input-dark"
                     value={inicio}
                     onChange={(e) => setInicio(e.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Fim</label>
+                  <label className="label-dark">Fim</label>
                   <input
                     type="date"
-                    className="border rounded-lg px-3 py-2 w-full"
+                    className="input-dark"
                     value={fim}
                     onChange={(e) => setFim(e.target.value)}
                   />
@@ -331,9 +371,9 @@ export default function AdminRelatorios() {
             )}
 
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Status</label>
+              <label className="label-dark">Status</label>
               <select
-                className="border rounded-lg px-3 py-2 w-full"
+                className="select-dark"
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
               >
@@ -345,9 +385,9 @@ export default function AdminRelatorios() {
             </div>
 
             <div className="md:col-span-2">
-              <label className="text-xs text-gray-500 mb-1 block">Cliente</label>
+              <label className="label-dark">Cliente</label>
               <input
-                className="border rounded-lg px-3 py-2 w-full"
+                className="input-dark"
                 placeholder="Buscar por nome..."
                 value={clienteBusca}
                 onChange={(e) => setClienteBusca(e.target.value)}
@@ -355,8 +395,9 @@ export default function AdminRelatorios() {
             </div>
 
             <div className="md:col-span-3">
-              <p className="text-[11px] text-gray-500">
-                Nota: “Cliente” é filtro local (front). Período/Status são filtros no back (quando possível).
+              <p className="text-[11px] text-muted">
+                Nota: “Cliente” é filtro local (front). Período/Status são filtros no
+                back (quando possível).
               </p>
             </div>
           </div>
@@ -368,28 +409,28 @@ export default function AdminRelatorios() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <Card className="animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
             <CardContent>
-              <p className="text-xs text-gray-500">Total</p>
+              <p className="text-xs text-muted">Total</p>
               <p className="text-2xl font-bold">{kpis.total}</p>
             </CardContent>
           </Card>
 
           <Card className="animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
             <CardContent>
-              <p className="text-xs text-gray-500">Agendados</p>
+              <p className="text-xs text-muted">Agendados</p>
               <p className="text-2xl font-bold">{kpis.agendado}</p>
             </CardContent>
           </Card>
 
           <Card className="animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
             <CardContent>
-              <p className="text-xs text-gray-500">Concluídos</p>
+              <p className="text-xs text-muted">Concluídos</p>
               <p className="text-2xl font-bold">{kpis.concluido}</p>
             </CardContent>
           </Card>
 
           <Card className="animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
             <CardContent>
-              <p className="text-xs text-gray-500">Cancelados</p>
+              <p className="text-xs text-muted">Cancelados</p>
               <p className="text-2xl font-bold">{kpis.cancelado}</p>
             </CardContent>
           </Card>
@@ -406,10 +447,12 @@ export default function AdminRelatorios() {
             )}
           </div>
 
-          {loading && <p className="text-sm text-gray-700">Gerando relatório...</p>}
+          {loading && <p className="text-sm text-muted">Gerando relatório...</p>}
 
           {!loading && agendamentos.length === 0 && (
-            <p className="text-sm text-gray-700">Aplique os filtros para ver resultados.</p>
+            <p className="text-sm text-muted">
+              Aplique os filtros para ver resultados.
+            </p>
           )}
 
           {!loading && agendamentos.length > 0 && (
@@ -417,11 +460,12 @@ export default function AdminRelatorios() {
               {agendamentos.map((a) => (
                 <div
                   key={a.id}
-                  className="border rounded-xl p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+                  className="card p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+                  style={{ padding: 12 }}
                 >
                   <div className="min-w-0">
                     <p className="font-semibold truncate">{a.clienteNome}</p>
-                    <p className="text-sm text-gray-700">
+                    <p className="text-sm text-muted">
                       {a.data} às {hhmm(a.horarioInicio)}
                     </p>
                   </div>
@@ -443,7 +487,7 @@ export default function AdminRelatorios() {
         {!temDadosParaGraficos && (
           <Card className="animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
             <CardContent>
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-muted">
                 Aplique os filtros para gerar os gráficos.
               </p>
             </CardContent>
@@ -462,18 +506,30 @@ export default function AdminRelatorios() {
                   </div>
 
                   {chartAgendamentosPorDia.length === 0 ? (
-                    <p className="text-sm text-gray-600">Sem dados para gerar gráfico.</p>
+                    <p className="text-sm text-muted">Sem dados para gerar gráfico.</p>
                   ) : (
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={chartAgendamentosPorDia}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="date" />
-                          <YAxis allowDecimals={false} />
-                          <Tooltip />
+                          <CartesianGrid
+                            stroke={CHART_GRID_STROKE}
+                            strokeDasharray="3 3"
+                          />
+                          <XAxis
+                            dataKey="date"
+                            tick={CHART_AXIS_TICK}
+                            axisLine={{ stroke: CHART_GRID_STROKE }}
+                          />
+                          <YAxis
+                            allowDecimals={false}
+                            tick={CHART_AXIS_TICK}
+                            axisLine={{ stroke: CHART_GRID_STROKE }}
+                          />
+                          <Tooltip {...tooltipStyle} />
                           <Line
                             type="monotone"
                             dataKey="count"
+                            stroke="var(--gold)"
                             strokeWidth={2}
                             dot={false}
                           />
@@ -493,16 +549,31 @@ export default function AdminRelatorios() {
                   </div>
 
                   {chartHorariosMaisUsados.length === 0 ? (
-                    <p className="text-sm text-gray-600">Sem dados para gerar gráfico.</p>
+                    <p className="text-sm text-muted">Sem dados para gerar gráfico.</p>
                   ) : (
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={chartHorariosMaisUsados}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="hour" />
-                          <YAxis allowDecimals={false} />
-                          <Tooltip />
-                          <Bar dataKey="count" />
+                          <CartesianGrid
+                            stroke={CHART_GRID_STROKE}
+                            strokeDasharray="3 3"
+                          />
+                          <XAxis
+                            dataKey="hour"
+                            tick={CHART_AXIS_TICK}
+                            axisLine={{ stroke: CHART_GRID_STROKE }}
+                          />
+                          <YAxis
+                            allowDecimals={false}
+                            tick={CHART_AXIS_TICK}
+                            axisLine={{ stroke: CHART_GRID_STROKE }}
+                          />
+                          <Tooltip {...tooltipStyle} />
+                          <Bar
+                            dataKey="count"
+                            fill="var(--gold)"
+                            radius={[10, 10, 0, 0]}
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -521,7 +592,7 @@ export default function AdminRelatorios() {
                   </div>
 
                   {chartServicosMaisUsados.length === 0 ? (
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-muted">
                       Sem dados. (Precisa o endpoint devolver “servicos” no agendamento.)
                     </p>
                   ) : (
@@ -535,12 +606,16 @@ export default function AdminRelatorios() {
                             outerRadius={90}
                             label
                           >
-                            {chartServicosMaisUsados.map((_, idx) => (
-                              <Cell key={idx} />
+                            {chartServicosMaisUsados.map((entry, idx) => (
+                              <Cell
+                                key={idx}
+                                fill={servicoColorMap[entry.name] ?? "var(--gold)"}
+                              />
                             ))}
                           </Pie>
-                          <Tooltip />
-                          <Legend />
+
+                          <Tooltip {...tooltipStyle} />
+                          <Legend wrapperStyle={{ color: "rgba(255,255,255,0.75)" }} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
@@ -557,18 +632,38 @@ export default function AdminRelatorios() {
                   </div>
 
                   {chartFormasPagamento.length === 0 ? (
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-muted">
                       Sem dados. (Precisa o endpoint devolver “formaPagamentoTipo/Modo”.)
                     </p>
                   ) : (
                     <div className="h-72">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={chartFormasPagamento} layout="vertical">
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis type="number" allowDecimals={false} />
-                          <YAxis type="category" dataKey="name" width={140} />
-                          <Tooltip />
-                          <Bar dataKey="value" />
+                          <CartesianGrid
+                            stroke={CHART_GRID_STROKE}
+                            strokeDasharray="3 3"
+                          />
+                          <XAxis
+                            type="number"
+                            allowDecimals={false}
+                            tick={CHART_AXIS_TICK}
+                            axisLine={{ stroke: CHART_GRID_STROKE }}
+                          />
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            width={160}
+                            tick={CHART_AXIS_TICK}
+                            axisLine={{ stroke: CHART_GRID_STROKE }}
+                          />
+                          <Tooltip {...tooltipStyle} />
+
+                          {/* barras coloridas por label */}
+                          <Bar dataKey="value" radius={[0, 10, 10, 0]}>
+                            {chartFormasPagamento.map((entry, idx) => (
+                              <Cell key={idx} fill={colorForKey(entry.name)} />
+                            ))}
+                          </Bar>
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -578,7 +673,7 @@ export default function AdminRelatorios() {
             </div>
 
             <div className="mt-1">
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted">
                 Próximo passo: exportar CSV com os mesmos filtros (front) e, idealmente,
                 criar endpoint de relatório no back para mês/intervalo com performance.
               </p>

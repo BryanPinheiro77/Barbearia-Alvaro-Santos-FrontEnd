@@ -13,6 +13,7 @@ import Register from "./pages/cliente/Register";
 import ClienteHistorico from "./pages/cliente/ClienteHistorico";
 import AdminRelatorios from "./pages/admin/AdminRelatorios";
 import Index from "./pages/home";
+import PagamentoRetorno from "./pages/cliente/PagamentoRetorno";
 
 
 export default function App() {
@@ -55,6 +56,8 @@ export default function App() {
             </PrivateRoute>
           }
         />
+
+        <Route path="/pagamento/retorno" element={<PagamentoRetorno />} />
 
         <Route
   path="/cliente/historico"

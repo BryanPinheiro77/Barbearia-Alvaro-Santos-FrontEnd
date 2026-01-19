@@ -31,7 +31,7 @@ function rangeLastNDays(n: number) {
 /* =========================
   Mini componentes de gráfico
 ========================= */
-function LineChart({
+function LineChartMini({
   points,
   height = 120,
 }: {
@@ -49,8 +49,7 @@ function LineChart({
   const toXY = (idx: number, val: number) => {
     const x = pad + idx * stepX;
     const y =
-      pad +
-      (height - pad * 2) * (1 - (val - min) / (max - min || 1));
+      pad + (height - pad * 2) * (1 - (val - min) / (max - min || 1));
     return { x, y };
   };
 
@@ -64,7 +63,6 @@ function LineChart({
   return (
     <div className="w-full overflow-x-auto">
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full">
-        {/* linha base */}
         <line
           x1={pad}
           y1={height - pad}
@@ -73,9 +71,7 @@ function LineChart({
           stroke="currentColor"
           opacity="0.15"
         />
-        {/* path */}
         <path d={d} fill="none" stroke="currentColor" strokeWidth="2" />
-        {/* pontos */}
         {points.map((p, i) => {
           const { x, y } = toXY(i, p.value);
           return (
@@ -113,11 +109,19 @@ function BarList({
         return (
           <div key={it.label} className="space-y-1">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm text-gray-800 truncate">{it.label}</p>
-              <p className="text-xs text-gray-500">{it.value}</p>
+              <p className="text-sm text-muted truncate">{it.label}</p>
+              <p className="text-xs text-muted">{it.value}</p>
             </div>
-            <div className="h-2 rounded bg-gray-100 overflow-hidden">
-              <div className="h-full bg-black" style={{ width: `${pct}%` }} />
+
+            <div className="h-2 rounded bg-[rgba(255,255,255,0.08)] overflow-hidden">
+              <div
+                className="h-full"
+                style={{
+                  width: `${pct}%`,
+                  background:
+                    "linear-gradient(90deg, var(--gold), var(--gold-2), var(--gold))",
+                }}
+              />
             </div>
           </div>
         );
@@ -130,15 +134,10 @@ function BarList({
   Dashboard
 ========================= */
 export default function AdminDashboard() {
-
-  // Filtro “resumo”
   const [dataFiltro, setDataFiltro] = useState<string>(hojeYYYYMMDD());
   const [statusFiltro, setStatusFiltro] = useState<string>("");
 
-  // Dataset do resumo (KPIs do dia/filtro)
   const [resumo, setResumo] = useState<Agendamento[]>([]);
-
-  // Dataset insights (30 dias para gráficos)
   const [insights, setInsights] = useState<Agendamento[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -166,7 +165,6 @@ export default function AdminDashboard() {
         AdminAgendamentosApi.listarAgendamentosAdmin(filtrosInsights),
       ]);
 
-      // ordena só por consistência (não mostramos lista, mas ajuda em agregações)
       respResumo.sort((a, b) => {
         const aKey = `${a.data ?? ""} ${a.horarioInicio ?? ""}`;
         const bKey = `${b.data ?? ""} ${b.horarioInicio ?? ""}`;
@@ -197,9 +195,6 @@ export default function AdminDashboard() {
     setTimeout(() => carregar(), 0);
   }
 
-  /* =========================
-    KPIs (do resumo)
-  ========================= */
   const kpis = useMemo(() => {
     const total = resumo.length;
     const agendado = resumo.filter((a) => a.status === "AGENDADO").length;
@@ -208,11 +203,6 @@ export default function AdminDashboard() {
     return { total, agendado, concluido, cancelado };
   }, [resumo]);
 
-  /* =========================
-    Gráficos (dos insights 30 dias)
-  ========================= */
-
-  // 1) Linha: últimos 14 dias
   const line14 = useMemo(() => {
     const r14 = rangeLastNDays(14);
 
@@ -229,17 +219,13 @@ export default function AdminDashboard() {
       }
     });
 
-    const points = Array.from(map.entries()).map(([date, value]) => {
+    return Array.from(map.entries()).map(([date, value]) => {
       const dd = date.slice(8, 10);
       const mm = date.slice(5, 7);
       return { label: `${dd}/${mm}`, value };
     });
-
-    return points;
   }, [insights]);
 
-
-  // 2) Serviços mais “vendidos” (top 8)
   const topServicos = useMemo(() => {
     const freq = new Map<string, number>();
     insights.forEach((a) => {
@@ -255,13 +241,16 @@ export default function AdminDashboard() {
       .map(([label, value]) => ({ label, value }));
   }, [insights]);
 
-  // 3) Formas de pagamento (top 6) — se não tiver campos, cai em “Não informado”
   const topPagamentos = useMemo(() => {
     const freq = new Map<string, number>();
 
     insights.forEach((a: any) => {
       const tipo = a.formaPagamentoTipo ?? "Não informado";
-      const modo = a.formaPagamentoModo ? (a.formaPagamentoModo === "ONLINE" ? "Online" : "Presencial") : "";
+      const modo = a.formaPagamentoModo
+        ? a.formaPagamentoModo === "ONLINE"
+          ? "Online"
+          : "Presencial"
+        : "";
       const label = modo ? `${tipo} (${modo})` : String(tipo);
       freq.set(label, (freq.get(label) ?? 0) + 1);
     });
@@ -277,44 +266,40 @@ export default function AdminDashboard() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
         <div>
           <h1 className="text-2xl font-bold">Dashboard (Admin)</h1>
-          <p className="text-sm text-gray-600">
-            Visão rápida (últimos 14/30 dias). Detalhes e filtros avançados ficam em “Relatórios”.
+          <p className="text-sm text-muted">
+            Visão rápida (últimos 14/30 dias). Detalhes e filtros avançados ficam
+            em “Relatórios”.
           </p>
         </div>
       </div>
 
-      {erro && (
-        <div className="mb-4 bg-red-100 border border-red-300 p-3 rounded animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
-          {erro}
-        </div>
-      )}
+      {erro && <div className="alert-error mb-4">{erro}</div>}
 
-      {/* Resumo do dia */}
       <Card className="mb-4 animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
         <CardContent>
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
             <div>
               <p className="font-semibold">Resumo (por filtro)</p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted">
                 Por padrão, inicia em <strong>hoje</strong>.
               </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full md:max-w-xl">
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Dia</label>
+                <label className="label-dark">Dia</label>
                 <input
                   type="date"
-                  className="border rounded-lg px-3 py-2 w-full"
+                  className="input-dark"
                   value={dataFiltro}
                   onChange={(e) => setDataFiltro(e.target.value)}
                 />
               </div>
 
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Status</label>
+                <label className="label-dark">Status</label>
                 <select
-                  className="border rounded-lg px-3 py-2 w-full"
+                  className="select-dark"
                   value={statusFiltro}
                   onChange={(e) => setStatusFiltro(e.target.value)}
                 >
@@ -326,42 +311,50 @@ export default function AdminDashboard() {
               </div>
 
               <div className="flex gap-2 items-end">
-                <Button variant="primary" onClick={carregar} loading={loading} className="w-full">
+                <Button
+                  variant="primary"
+                  onClick={carregar}
+                  loading={loading}
+                  className="w-full"
+                >
                   Aplicar
                 </Button>
-                <Button variant="secondary" onClick={limparFiltros} className="w-full">
+                <Button
+                  variant="secondary"
+                  onClick={limparFiltros}
+                  className="w-full"
+                >
                   Limpar
                 </Button>
               </div>
             </div>
           </div>
 
-          {/* KPIs */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
             <Card className="animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
               <CardContent>
-                <p className="text-xs text-gray-500">Total</p>
+                <p className="text-xs text-muted">Total</p>
                 <p className="text-2xl font-bold">{kpis.total}</p>
               </CardContent>
             </Card>
 
             <Card className="animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
               <CardContent>
-                <p className="text-xs text-gray-500">Agendados</p>
+                <p className="text-xs text-muted">Agendados</p>
                 <p className="text-2xl font-bold">{kpis.agendado}</p>
               </CardContent>
             </Card>
 
             <Card className="animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
               <CardContent>
-                <p className="text-xs text-gray-500">Concluídos</p>
+                <p className="text-xs text-muted">Concluídos</p>
                 <p className="text-2xl font-bold">{kpis.concluido}</p>
               </CardContent>
             </Card>
 
             <Card className="animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
               <CardContent>
-                <p className="text-xs text-gray-500">Cancelados</p>
+                <p className="text-xs text-muted">Cancelados</p>
                 <p className="text-2xl font-bold">{kpis.cancelado}</p>
               </CardContent>
             </Card>
@@ -369,19 +362,18 @@ export default function AdminDashboard() {
         </CardContent>
       </Card>
 
-      {/* Gráficos do Dashboard (sem duplicar a Agenda) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <Card className="animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
           <CardContent>
             <div className="flex items-center justify-between mb-2">
               <p className="font-semibold">Agendamentos por dia</p>
-              <p className="text-xs text-gray-500">últimos 14 dias</p>
+              <p className="text-xs text-muted">últimos 14 dias</p>
             </div>
 
             {loading ? (
-              <p className="text-sm text-gray-600">Carregando gráfico...</p>
+              <p className="text-sm text-muted">Carregando gráfico...</p>
             ) : (
-              <LineChart points={line14} />
+              <LineChartMini points={line14} />
             )}
           </CardContent>
         </Card>
@@ -390,11 +382,11 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="flex items-center justify-between mb-2">
               <p className="font-semibold">Serviços mais vendidos</p>
-              <p className="text-xs text-gray-500">últimos 30 dias</p>
+              <p className="text-xs text-muted">últimos 30 dias</p>
             </div>
 
             {topServicos.length === 0 ? (
-              <p className="text-sm text-gray-600">Sem serviços no período.</p>
+              <p className="text-sm text-muted">Sem serviços no período.</p>
             ) : (
               <BarList items={topServicos} />
             )}
@@ -405,11 +397,11 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="flex items-center justify-between mb-2">
               <p className="font-semibold">Formas de pagamento</p>
-              <p className="text-xs text-gray-500">últimos 30 dias</p>
+              <p className="text-xs text-muted">últimos 30 dias</p>
             </div>
 
             {topPagamentos.length === 0 ? (
-              <p className="text-sm text-gray-600">Sem dados de pagamento.</p>
+              <p className="text-sm text-muted">Sem dados de pagamento.</p>
             ) : (
               <BarList items={topPagamentos} />
             )}
