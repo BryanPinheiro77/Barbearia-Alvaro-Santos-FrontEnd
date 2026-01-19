@@ -27,7 +27,7 @@ export default function PagamentoRetorno() {
           setMsg("Pagamento confirmado. Voltando ao agendamento...");
 
           // Volta para a mesma tela e pede para restaurar estado
-          navigate("/cliente/novo-agendamento?resume=1");
+          navigate("/cliente/novo-agendamento?resume=1", { replace: true });
           return;
         }
 
