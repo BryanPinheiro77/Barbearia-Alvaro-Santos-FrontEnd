@@ -62,7 +62,7 @@ export default function NovoAgendamento() {
   const [pixQrBase64, setPixQrBase64] = useState<string | null>(null);
   const [pixCopiaCola, setPixCopiaCola] = useState<string | null>(null);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
-  const [agendamentoOnlineId, setAgendamentoOnlineId] = useState<number | null>(null);
+  const [, setAgendamentoOnlineId] = useState<number | null>(null);
   const pollingRef = useRef<number | null>(null);
 
   // Auxiliares
