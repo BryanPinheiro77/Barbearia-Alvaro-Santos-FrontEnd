@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import type { RefObject } from "react";
 
 import { AppShell } from "../../components/layout/AppShell";
@@ -28,7 +28,6 @@ function isMobileDevice() {
 export default function NovoAgendamento() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   // SERVIÇOS
   const [servicos, setServicos] = useState<ServicosApi.Servico[]>([]);
@@ -39,22 +38,7 @@ export default function NovoAgendamento() {
   const [horarios, setHorarios] = useState<string[]>([]);
   const [horarioSelecionado, setHorarioSelecionado] = useState("");
 
-  // PAGAMENTO (seleção)
-  const [pagamentoTipo, setPagamentoTipo] =
-    useState<CriarAgendamentoApi.FormaPagamentoTipo>("PIX");
-  const [pagamentoModo, setPagamentoModo] =
-    useState<CriarAgendamentoApi.FormaPagamentoModo>("PAGAR_NA_HORA");
-
-  // PAGAMENTO ONLINE real
-  const [checkoutStatus, setCheckoutStatus] = useState<CheckoutStatus>("IDLE");
-  const [pagamentoId, setPagamentoId] = useState<number | null>(null);
-  const [pixQrBase64, setPixQrBase64] = useState<string | null>(null);
-  const [pixCopiaCola, setPixCopiaCola] = useState<string | null>(null);
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
-  const [agendamentoOnlineId, setAgendamentoOnlineId] = useState<number | null>(null);
-  const pollingRef = useRef<number | null>(null);
-
-  // LEMBRETE
+  // LEMBRETE (AGORA É O STEP 4)
   const lembretesPreDefinidos = [
     { label: "Sem lembrete", value: 0 },
     { label: "15 minutos antes", value: 15 },
@@ -66,6 +50,21 @@ export default function NovoAgendamento() {
   const [lembreteMinutos, setLembreteMinutos] = useState<number>(30);
   const [lembretePersonalizado, setLembretePersonalizado] = useState(false);
 
+  // PAGAMENTO (AGORA É O STEP 5)
+  const [pagamentoTipo, setPagamentoTipo] =
+    useState<CriarAgendamentoApi.FormaPagamentoTipo>("PIX");
+  const [pagamentoModo, setPagamentoModo] =
+    useState<CriarAgendamentoApi.FormaPagamentoModo>("PAGAR_NA_HORA");
+
+  // PAGAMENTO ONLINE (estado)
+  const [checkoutStatus, setCheckoutStatus] = useState<CheckoutStatus>("IDLE");
+  const [pagamentoId, setPagamentoId] = useState<number | null>(null);
+  const [pixQrBase64, setPixQrBase64] = useState<string | null>(null);
+  const [pixCopiaCola, setPixCopiaCola] = useState<string | null>(null);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const [agendamentoOnlineId, setAgendamentoOnlineId] = useState<number | null>(null);
+  const pollingRef = useRef<number | null>(null);
+
   // Auxiliares
   const [loadingServicos, setLoadingServicos] = useState(true);
   const [loadingHorarios, setLoadingHorarios] = useState(false);
@@ -74,52 +73,11 @@ export default function NovoAgendamento() {
   // Refs de scroll dos steps
   const step2Ref = useRef<HTMLDivElement>(null);
   const step3Ref = useRef<HTMLDivElement>(null);
-  const step4Ref = useRef<HTMLDivElement>(null);
-  const step5Ref = useRef<HTMLDivElement>(null);
+  const step4Ref = useRef<HTMLDivElement>(null); // Lembrete
+  const step5Ref = useRef<HTMLDivElement>(null); // Pagamento
 
   // Para evitar corrida de requisições de horários
   const horariosReqIdRef = useRef(0);
-
-  // Draft/localStorage (para voltar do checkout mantendo estado)
-  const DRAFT_KEY = "novoAgendamentoDraft";
-
-  function salvarDraft(params?: {
-    agendamentoId?: number;
-    pagamentoId?: number;
-    checkoutUrl?: string | null;
-    status?: CheckoutStatus;
-  }) {
-    const draft = {
-      servicosSelecionados,
-      data,
-      horarioSelecionado,
-      pagamentoTipo,
-      pagamentoModo: "ONLINE" as CriarAgendamentoApi.FormaPagamentoModo,
-      lembreteMinutos,
-      lembretePersonalizado,
-      agendamentoOnlineId: params?.agendamentoId ?? agendamentoOnlineId,
-      pagamentoId: params?.pagamentoId ?? pagamentoId,
-      checkoutUrl: params?.checkoutUrl ?? checkoutUrl,
-      checkoutStatus: params?.status ?? checkoutStatus,
-      atualizadoEm: Date.now(),
-    };
-
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  }
-
-  function carregarDraft(): any | null {
-    try {
-      const raw = localStorage.getItem(DRAFT_KEY);
-      if (!raw) return null;
-      return JSON.parse(raw);
-    } catch {
-      return null;
-    }
-  }
-
-  function limparDraft() {
-    localStorage.removeItem(DRAFT_KEY);
-  }
 
   function pararPolling() {
     if (pollingRef.current) {
@@ -147,6 +105,12 @@ export default function NovoAgendamento() {
     }, 80);
   }
 
+  function limparPersistenciaPagamento() {
+    localStorage.removeItem("ultimoPagamentoId");
+    localStorage.removeItem("ultimoAgendamentoId");
+    localStorage.removeItem("novoAgendamentoDraft"); // caso exista de versões antigas
+  }
+
   // Carregar serviços
   useEffect(() => {
     (async () => {
@@ -163,42 +127,7 @@ export default function NovoAgendamento() {
     })();
   }, []);
 
-  // Se voltar do pagamento com ?resume=1, restaura o draft e vai pro step 5
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    const resume = url.searchParams.get("resume");
-    if (resume !== "1") return;
-
-    const draft = carregarDraft();
-    if (!draft) return;
-
-    setServicosSelecionados(draft.servicosSelecionados ?? []);
-    setData(draft.data ?? "");
-    setHorarioSelecionado(draft.horarioSelecionado ?? "");
-
-    setPagamentoTipo(draft.pagamentoTipo ?? "PIX");
-    setPagamentoModo("ONLINE");
-
-    setLembreteMinutos(typeof draft.lembreteMinutos === "number" ? draft.lembreteMinutos : 30);
-    setLembretePersonalizado(!!draft.lembretePersonalizado);
-
-    setAgendamentoOnlineId(draft.agendamentoOnlineId ?? null);
-    setPagamentoId(draft.pagamentoId ?? null);
-    setCheckoutUrl(draft.checkoutUrl ?? null);
-
-    // PagamentoRetorno só manda resume=1 se estiver PAGO.
-    setCheckoutStatus("PAGO");
-
-    // remove param pra não repetir
-    url.searchParams.delete("resume");
-    window.history.replaceState({}, "", url.toString());
-
-    // foca no step 5
-    scrollToRef(step5Ref);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.key]);
-
-  // Resets quando muda serviços ou data
+  // Resets quando muda serviços ou data (muda tudo do fluxo)
   useEffect(() => {
     setHorarios([]);
     setHorarioSelecionado("");
@@ -206,13 +135,20 @@ export default function NovoAgendamento() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [servicosSelecionados, data]);
 
-  // Resets quando muda tipo/modo/horário (mas não quebra o retorno pago)
+  // Resets quando muda horário (pode mudar total/agenda e invalida pagamento anterior)
   useEffect(() => {
-    // Se já está PAGO, não faz reset automático (evita perder estado ao voltar do checkout)
     if (checkoutStatus === "PAGO") return;
     limparPagamentoUi();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagamentoTipo, pagamentoModo, horarioSelecionado]);
+  }, [horarioSelecionado]);
+
+  // Resets quando muda lembrete (evita pagar e depois alterar regra do lembrete do mesmo agendamento)
+  useEffect(() => {
+    if (checkoutStatus === "IDLE") return;
+    if (checkoutStatus === "PAGO") return;
+    limparPagamentoUi();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lembreteMinutos, lembretePersonalizado]);
 
   useEffect(() => {
     return () => pararPolling();
@@ -232,13 +168,14 @@ export default function NovoAgendamento() {
   const step1Done = servicosSelecionados.length > 0;
   const step2Done = step1Done && !!data;
   const step3Done = step2Done && !!horarioSelecionado;
+
+  // lembrete tem default, então basta ter horário
   const step4Done = step3Done;
+
+  // pagamento é o final
   const step5Done = step4Done;
 
   const podeConfirmar = !!user && data && horarioSelecionado && servicosSelecionados.length > 0;
-
-  const podeFinalizar =
-    podeConfirmar && (pagamentoModo !== "ONLINE" || checkoutStatus === "PAGO");
 
   // Auto-scroll quando os steps liberarem
   const prevStep1Done = useRef(false);
@@ -312,7 +249,7 @@ export default function NovoAgendamento() {
     if (!podeConfirmar || !user) return;
 
     if (pagamentoModo === "ONLINE") {
-      setErro("Para pagamento online, clique em 'Ir para pagamento'.");
+      setErro("Para pagamento online, use 'Ir para pagamento'.");
       return;
     }
 
@@ -328,20 +265,12 @@ export default function NovoAgendamento() {
         lembreteMinutos,
       });
 
-      navigate("/cliente");
+      limparPersistenciaPagamento();
+      navigate("/cliente", { replace: true });
     } catch (e) {
       console.error(e);
       setErro("Erro ao confirmar agendamento.");
     }
-  }
-
-  async function finalizarAgendamentoOnline() {
-    // aqui o "finalizar" é apenas encerrar o fluxo na UI (o agendamento já existe)
-    // se quiseres persistir lembrete no backend, aqui seria o ponto de chamar PATCH.
-    limparDraft();
-    localStorage.removeItem("ultimoPagamentoId");
-    localStorage.removeItem("ultimoAgendamentoId");
-    navigate("/cliente");
   }
 
   async function iniciarPagamentoOnline() {
@@ -364,6 +293,7 @@ export default function NovoAgendamento() {
       limparPagamentoUi();
       setCheckoutStatus("REDIRECIONANDO");
 
+      // 1) cria o agendamento já com o lembrete escolhido (fica reservado)
       const ag = await CriarAgendamentoApi.criarAgendamento({
         servicosIds: servicosSelecionados,
         data,
@@ -375,6 +305,7 @@ export default function NovoAgendamento() {
 
       agendamentoCriadoId = ag.id;
 
+      // 2) cria pagamento
       const estrategia: PagamentosApi.TipoPagamentoStrategy =
         pagamentoTipo === "PIX" ? "PIX_DIRECT" : "CHECKOUT_PRO";
 
@@ -394,18 +325,12 @@ export default function NovoAgendamento() {
       setCheckoutUrl(pay.checkoutUrl);
       setCheckoutStatus("AGUARDANDO_PAGAMENTO");
 
-      // Guarda para a rota de retorno
+      // Para a rota /pagamento/retorno
       localStorage.setItem("ultimoPagamentoId", String(pay.pagamentoId));
       localStorage.setItem("ultimoAgendamentoId", String(ag.id));
 
-      // Salva draft antes de sair do app
-      salvarDraft({
-        agendamentoId: ag.id,
-        pagamentoId: pay.pagamentoId,
-        checkoutUrl: pay.checkoutUrl,
-        status: "AGUARDANDO_PAGAMENTO",
-      });
-
+      // 3) Se vier checkoutUrl (cartão checkout / redirect), redireciona.
+      //    Em mobile, sempre na mesma aba.
       if (pay.checkoutUrl) {
         const mobile = isMobileDevice();
 
@@ -414,14 +339,17 @@ export default function NovoAgendamento() {
           return;
         }
 
+        // desktop: tenta popup (melhor UX), mas cai no redirect se bloquear
         const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
         if (popup) {
           popup.location.replace(pay.checkoutUrl);
         } else {
           window.location.assign(pay.checkoutUrl);
         }
+        return;
       }
 
+      // 4) Se NÃO tiver checkoutUrl (PIX Direct), fica na tela e faz polling até PAGO.
       pararPolling();
       pollingRef.current = window.setInterval(async () => {
         try {
@@ -430,8 +358,10 @@ export default function NovoAgendamento() {
           if (st.status === "PAGO") {
             setCheckoutStatus("PAGO");
             pararPolling();
-            salvarDraft({ status: "PAGO" });
-            scrollToRef(step5Ref);
+
+            // fluxo termina aqui
+            limparPersistenciaPagamento();
+            navigate("/cliente", { replace: true });
             return;
           }
 
@@ -447,6 +377,7 @@ export default function NovoAgendamento() {
     } catch (e) {
       console.error(e);
 
+      // Se falhou antes de redirecionar, cancela o agendamento criado
       if (agendamentoCriadoId) {
         try {
           await AgendamentosApi.cancelarAgendamento(agendamentoCriadoId);
@@ -470,15 +401,20 @@ export default function NovoAgendamento() {
       if (st.status === "PAGO") {
         setCheckoutStatus("PAGO");
         pararPolling();
-        salvarDraft({ status: "PAGO" });
-        scrollToRef(step5Ref);
-      } else if (st.status === "CANCELADO" || st.status === "FALHOU") {
+
+        limparPersistenciaPagamento();
+        navigate("/cliente", { replace: true });
+        return;
+      }
+
+      if (st.status === "CANCELADO" || st.status === "FALHOU") {
         setErro(`Pagamento ${st.status}.`);
         setCheckoutStatus("IDLE");
         pararPolling();
-      } else {
-        setErro(`Status atual: ${st.status}`);
+        return;
       }
+
+      setErro(`Status atual: ${st.status}`);
     } catch (e) {
       console.error(e);
       setErro("Não foi possível consultar o status agora.");
@@ -492,7 +428,7 @@ export default function NovoAgendamento() {
           <div>
             <span className="tag">Cliente</span>
             <h1 className="font-display text-3xl mt-3">Novo agendamento</h1>
-            <p className="text-white/70 mt-2">Selecione serviços, data, horário e pagamento.</p>
+            <p className="text-white/70 mt-2">Selecione serviços, data, horário, lembrete e pagamento.</p>
           </div>
 
           <button className="btn-outline" onClick={() => navigate("/cliente")}>
@@ -629,14 +565,58 @@ export default function NovoAgendamento() {
             )}
           </Step>
 
-          {/* STEP 4 */}
+          {/* STEP 4 (AGORA É LEMBRETE) */}
           <Step
             step={4}
-            title="Pagamento"
-            subtitle="Escolha tipo e se será online ou na hora."
+            title="Lembrete"
+            subtitle="Defina se quer receber lembrete antes do horário."
             open={step3Done}
             done={step4Done}
             containerRef={step4Ref}
+          >
+            <select
+              className="select-dark sm:max-w-sm"
+              value={lembretePersonalizado ? "PERSONALIZADO" : lembreteMinutos}
+              onChange={(e) => {
+                if (e.target.value === "PERSONALIZADO") {
+                  setLembretePersonalizado(true);
+                  setLembreteMinutos(30);
+                } else {
+                  setLembretePersonalizado(false);
+                  setLembreteMinutos(Number(e.target.value));
+                }
+              }}
+            >
+              {lembretesPreDefinidos.map((l) => (
+                <option key={l.value} value={l.value}>
+                  {l.label}
+                </option>
+              ))}
+              <option value="PERSONALIZADO">Personalizado</option>
+            </select>
+
+            {lembretePersonalizado && (
+              <div className="mt-4">
+                <label className="label-dark">Quantos minutos antes?</label>
+                <input
+                  type="number"
+                  min={1}
+                  className="input-dark w-40"
+                  value={lembreteMinutos}
+                  onChange={(e) => setLembreteMinutos(Number(e.target.value))}
+                />
+              </div>
+            )}
+          </Step>
+
+          {/* STEP 5 (AGORA É PAGAMENTO) */}
+          <Step
+            step={5}
+            title="Pagamento"
+            subtitle="Escolha o tipo e se será online ou na hora."
+            open={step4Done}
+            done={step5Done}
+            containerRef={step5Ref}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -669,8 +649,26 @@ export default function NovoAgendamento() {
               </div>
             </div>
 
+            {/* PAGAR NA HORA */}
+            {pagamentoModo !== "ONLINE" && (
+              <div className="mt-6">
+                <button
+                  className={["btn-gold", !podeConfirmar ? "opacity-60 pointer-events-none" : ""].join(" ")}
+                  disabled={!podeConfirmar}
+                  onClick={confirmarAgendamentoPagarNaHora}
+                >
+                  Confirmar agendamento
+                </button>
+
+                <p className="mt-3 text-sm text-white/70">
+                  Você pagará no atendimento. O lembrete será aplicado conforme selecionado.
+                </p>
+              </div>
+            )}
+
+            {/* ONLINE */}
             {pagamentoModo === "ONLINE" && (
-              <div className="mt-5">
+              <div className="mt-6">
                 {checkoutStatus === "IDLE" && (
                   <button
                     className={["btn-gold", !podeConfirmar ? "opacity-60 pointer-events-none" : ""].join(" ")}
@@ -691,7 +689,7 @@ export default function NovoAgendamento() {
 
                     {checkoutUrl && (
                       <p className="text-sm text-white/65">
-                        Checkout iniciado. Se você já pagou, volte aqui e clique em “Verificar status”.
+                        Checkout iniciado. Ao finalizar o pagamento, você será redirecionado.
                       </p>
                     )}
 
@@ -738,6 +736,7 @@ export default function NovoAgendamento() {
                     )}
 
                     <div className="mt-4 flex flex-wrap gap-2">
+                      {/* útil principalmente para PIX Direct */}
                       <button className="btn-outline" onClick={verificarStatusAgora}>
                         Verificar status
                       </button>
@@ -757,87 +756,18 @@ export default function NovoAgendamento() {
 
                 {checkoutStatus === "PAGO" && (
                   <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="font-medium text-white/90">Pagamento confirmado. Agora finalize o agendamento abaixo.</p>
+                    <p className="font-medium text-white/90">
+                      Pagamento confirmado. Redirecionando...
+                    </p>
                   </div>
                 )}
-              </div>
-            )}
-          </Step>
 
-          {/* STEP 5 */}
-          <Step
-            step={5}
-            title="Lembrete"
-            subtitle="Defina se quer receber lembrete antes do horário."
-            open={step4Done}
-            done={step5Done}
-            containerRef={step5Ref}
-          >
-            {pagamentoModo === "ONLINE" && checkoutStatus !== "PAGO" && (
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 mb-4">
-                <p className="text-sm text-white/75">
-                  Para continuar, conclua o pagamento online e depois volte aqui para finalizar o agendamento.
-                </p>
-              </div>
-            )}
-
-            <select
-              className="select-dark sm:max-w-sm"
-              value={lembretePersonalizado ? "PERSONALIZADO" : lembreteMinutos}
-              onChange={(e) => {
-                if (e.target.value === "PERSONALIZADO") {
-                  setLembretePersonalizado(true);
-                  setLembreteMinutos(30);
-                } else {
-                  setLembretePersonalizado(false);
-                  setLembreteMinutos(Number(e.target.value));
-                }
-              }}
-              disabled={pagamentoModo === "ONLINE" && checkoutStatus !== "PAGO"}
-            >
-              {lembretesPreDefinidos.map((l) => (
-                <option key={l.value} value={l.value}>
-                  {l.label}
-                </option>
-              ))}
-              <option value="PERSONALIZADO">Personalizado</option>
-            </select>
-
-            {lembretePersonalizado && (
-              <div className="mt-4">
-                <label className="label-dark">Quantos minutos antes?</label>
-                <input
-                  type="number"
-                  min={1}
-                  className="input-dark w-40"
-                  value={lembreteMinutos}
-                  onChange={(e) => setLembreteMinutos(Number(e.target.value))}
-                  disabled={pagamentoModo === "ONLINE" && checkoutStatus !== "PAGO"}
-                />
-              </div>
-            )}
-
-            <div className="mt-6">
-              <button
-                className={["btn-gold", !podeFinalizar ? "opacity-60 pointer-events-none" : ""].join(" ")}
-                disabled={!podeFinalizar}
-                onClick={() => {
-                  if (pagamentoModo === "ONLINE") {
-                    finalizarAgendamentoOnline();
-                    return;
-                  }
-                  confirmarAgendamentoPagarNaHora();
-                }}
-              >
-                Finalizar agendamento
-              </button>
-
-              {pagamentoModo === "ONLINE" && (
                 <p className="mt-3 text-sm text-white/70">
-                  Para pagamento online, use “Ir para pagamento”. Após aprovado, selecione o lembrete e finalize.
+                  No pagamento online, o agendamento é criado para reservar o horário e o sistema confirma após o pagamento.
+                  Quando aprovado, você será levado para a área do cliente automaticamente.
                 </p>
-              )}
-            </div>
+              </div>
+            )}
           </Step>
         </div>
       </div>

@@ -9,12 +9,11 @@ export default function PagamentoRetorno() {
 
   useEffect(() => {
     (async () => {
-      const pagamentoIdStr =
-        localStorage.getItem("ultimoPagamentoId");
+      const pagamentoIdStr = localStorage.getItem("ultimoPagamentoId");
 
       if (!pagamentoIdStr) {
-        setMsg("Não encontrei o pagamento. Voltando ao agendamento...");
-        navigate("/cliente/novo-agendamento");
+        setMsg("Não encontrei o pagamento. Indo para a área do cliente...");
+        navigate("/cliente", { replace: true });
         return;
       }
 
@@ -24,19 +23,24 @@ export default function PagamentoRetorno() {
         const st = await PagamentosApi.buscarPagamentoPorId(pagamentoId);
 
         if (st.status === "PAGO") {
-          setMsg("Pagamento confirmado. Voltando ao agendamento...");
+          setMsg("Pagamento confirmado. Redirecionando...");
 
-          // Volta para a mesma tela e pede para restaurar estado
-          navigate("/cliente/novo-agendamento?resume=1", { replace: true });
+          // limpa o estado do fluxo
+          localStorage.removeItem("ultimoPagamentoId");
+          localStorage.removeItem("ultimoAgendamentoId");
+          localStorage.removeItem("novoAgendamentoDraft");
+
+          navigate("/cliente", { replace: true });
           return;
         }
 
-        setMsg(`Pagamento: ${st.status}. Volte ao agendamento e verifique novamente.`);
-        navigate("/cliente/novo-agendamento");
+        // Não pago ainda (pending, etc.)
+        setMsg(`Pagamento: ${st.status}. Você pode tentar novamente.`);
+        navigate("/cliente/novo-agendamento", { replace: true });
       } catch (e) {
         console.error(e);
-        setMsg("Não foi possível validar o pagamento agora. Volte ao agendamento.");
-        navigate("/cliente/novo-agendamento");
+        setMsg("Não foi possível validar o pagamento agora. Tente novamente.");
+        navigate("/cliente/novo-agendamento", { replace: true });
       }
     })();
   }, [navigate]);
