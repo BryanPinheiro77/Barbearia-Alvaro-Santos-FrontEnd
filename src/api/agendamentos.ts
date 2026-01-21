@@ -1,4 +1,3 @@
-// src/api/agendamentos.ts
 import { http } from "./http";
 
 export type StatusAgendamento = "AGENDADO" | "CANCELADO" | "CONCLUIDO";

@@ -1,4 +1,3 @@
-// src/api/adminAgendamentos.ts
 import { http } from "./http";
 import type { Agendamento } from "./agendamentos";
 

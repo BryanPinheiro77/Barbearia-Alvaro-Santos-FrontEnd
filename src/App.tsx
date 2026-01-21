@@ -14,6 +14,7 @@ import ClienteHistorico from "./pages/cliente/ClienteHistorico";
 import AdminRelatorios from "./pages/admin/AdminRelatorios";
 import Index from "./pages/home";
 import PagamentoRetorno from "./pages/cliente/PagamentoRetorno";
+import ClienteConfiguracoes from "./pages/cliente/ConfiguracoesCliente";
 
 
 export default function App() {
@@ -57,7 +58,23 @@ export default function App() {
           }
         />
 
-        <Route path="/pagamento/retorno" element={<PagamentoRetorno />} />
+        <Route
+          path="/cliente/configuracoes"
+          element={
+            <PrivateRoute allow={["CLIENTE"]}>
+              <ClienteConfiguracoes />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/pagamento/retorno"
+          element={
+            <PrivateRoute allow={["CLIENTE"]}>
+              <PagamentoRetorno />
+            </PrivateRoute>
+          }
+        />
 
         <Route
   path="/cliente/historico"
