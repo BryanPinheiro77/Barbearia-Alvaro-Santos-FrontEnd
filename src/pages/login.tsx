@@ -64,8 +64,8 @@ export default function Login() {
               <Scissors className="h-4 w-4 text-[#d9a441]" />
             </div>
             <div className="leading-tight">
-              <div className="font-display text-lg">Álvaro Santos</div>
-              <div className="text-xs text-white/60">Barber Lounge</div>
+              <div className="font-display text-lg">Barbearia Álvaro Santos</div>
+              <div className="text-xs text-white/60">Faça o seu agendamento de forma fácil e rápida</div>
             </div>
           </Link>
 

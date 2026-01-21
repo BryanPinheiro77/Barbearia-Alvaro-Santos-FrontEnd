@@ -9,9 +9,10 @@ export type ClienteMeResponse = {
 };
 
 export type ClienteUpdateRequest = {
-  nome?: string;
+   nome?: string;
   email?: string;
   telefone?: string;
+  senhaAtual?: string;
 };
 
 export type ClienteChangePasswordRequest = {

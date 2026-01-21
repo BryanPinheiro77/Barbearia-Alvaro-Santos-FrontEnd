@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppShell } from "../../components/layout/AppShell";
 import { useAuth } from "../../auth/AuthContext";
 import * as ClienteApi from "../../api/cliente";
@@ -11,6 +12,7 @@ type FormState = {
 
 export default function ConfiguracoesCliente() {
   const { user, login, logout } = useAuth();
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -23,7 +25,13 @@ export default function ConfiguracoesCliente() {
     telefone: "",
   });
 
-  // senha
+  // Guardar valores originais para detectar mudança
+  const originalRef = useRef<{ email: string; telefone: string } | null>(null);
+
+  // senha para confirmar mudança de email/telefone
+  const [senhaConfirmacao, setSenhaConfirmacao] = useState("");
+
+  // senha (troca)
   const [senhaAtual, setSenhaAtual] = useState("");
   const [novaSenha, setNovaSenha] = useState("");
   const [salvandoSenha, setSalvandoSenha] = useState(false);
@@ -34,6 +42,15 @@ export default function ConfiguracoesCliente() {
     return form.nome.trim() && form.email.trim() && form.telefone.trim();
   }, [form]);
 
+  const precisaSenhaParaDados = useMemo(() => {
+    const orig = originalRef.current;
+    if (!orig) return false;
+
+    const emailMudou = form.email.trim() !== (orig.email ?? "");
+    const telMudou = form.telefone.trim() !== (orig.telefone ?? "");
+    return emailMudou || telMudou;
+  }, [form.email, form.telefone]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -41,10 +58,16 @@ export default function ConfiguracoesCliente() {
         setLoading(true);
 
         const me = await ClienteApi.buscarMe();
+
+        const email = me.email ?? "";
+        const telefone = me.telefone ?? "";
+
+        originalRef.current = { email, telefone };
+
         setForm({
           nome: me.nome ?? "",
-          email: me.email ?? "",
-          telefone: me.telefone ?? "",
+          email,
+          telefone,
         });
       } catch (e) {
         console.error(e);
@@ -58,16 +81,43 @@ export default function ConfiguracoesCliente() {
   async function salvarDados() {
     if (!user) return;
 
+    // Se mudou email/telefone, exige senha
+    if (precisaSenhaParaDados && !senhaConfirmacao.trim()) {
+      setErro("Para alterar e-mail ou telefone, informe sua senha atual.");
+      return;
+    }
+
     try {
       setOkMsg(null);
       setErro(null);
       setSalvando(true);
 
+      const orig = originalRef.current;
+      const emailAntes = orig?.email ?? "";
+
       const atualizado = await ClienteApi.atualizarMe({
         nome: form.nome.trim(),
         email: form.email.trim(),
         telefone: form.telefone.trim(),
+        senhaAtual: precisaSenhaParaDados ? senhaConfirmacao : undefined,
       });
+
+      // Atualiza original após salvar com sucesso
+      originalRef.current = {
+        email: atualizado.email ?? form.email.trim(),
+        telefone: atualizado.telefone ?? form.telefone.trim(),
+      };
+
+      // Se o email mudou, token antigo fica inválido -> força login de novo
+      const emailDepois = (atualizado.email ?? "").trim();
+      const emailMudouDeVerdade = emailDepois && emailDepois !== emailAntes;
+
+      if (emailMudouDeVerdade) {
+        setOkMsg("E-mail alterado. Faça login novamente.");
+        logout();
+        navigate("/login", { replace: true });
+        return;
+      }
 
       // Atualiza AuthContext para refletir o nome na UI
       login({
@@ -75,10 +125,20 @@ export default function ConfiguracoesCliente() {
         nome: atualizado.nome,
       });
 
+      setSenhaConfirmacao("");
       setOkMsg("Dados atualizados com sucesso.");
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      setErro("Não foi possível salvar. Verifique os dados e tente novamente.");
+
+      const msg = String(e?.message || "");
+
+      if (msg.includes("HTTP 401")) {
+        setErro("Senha atual incorreta.");
+      } else if (msg.includes("HTTP 409")) {
+        setErro("Este e-mail já está em uso.");
+      } else {
+        setErro("Não foi possível salvar. Verifique os dados e tente novamente.");
+      }
     } finally {
       setSalvando(false);
     }
@@ -96,8 +156,8 @@ export default function ConfiguracoesCliente() {
       setSalvandoSenha(true);
 
       await ClienteApi.trocarSenha({
-        senhaAtual: senhaAtual,
-        novaSenha: novaSenha,
+        senhaAtual,
+        novaSenha,
       });
 
       setSenhaAtual("");
@@ -106,8 +166,8 @@ export default function ConfiguracoesCliente() {
     } catch (e: any) {
       console.error(e);
 
-      // seu back retorna 401 quando senha atual está errada
-      if (e?.response?.status === 401) {
+      const msg = String(e?.message || "");
+      if (msg.includes("HTTP 401")) {
         setErroSenha("Senha atual incorreta.");
       } else {
         setErroSenha("Não foi possível atualizar a senha agora.");
@@ -171,11 +231,32 @@ export default function ConfiguracoesCliente() {
                     placeholder="seuemail@exemplo.com"
                   />
                 </div>
+
+                {precisaSenhaParaDados && (
+                  <div className="sm:col-span-2">
+                    <label className="label-dark">
+                      Senha atual (obrigatória para alterar e-mail/telefone)
+                    </label>
+                    <input
+                      className="input-dark"
+                      type="password"
+                      value={senhaConfirmacao}
+                      onChange={(e) => setSenhaConfirmacao(e.target.value)}
+                      placeholder="Digite sua senha atual"
+                    />
+                    <p className="text-xs text-white/55 mt-2">
+                      Você só precisa preencher isso se tiver mudado e-mail ou telefone.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="mt-5 flex flex-wrap gap-2">
                 <button
-                  className={["btn-gold", (!podeSalvar || salvando) ? "opacity-60 pointer-events-none" : ""].join(" ")}
+                  className={[
+                    "btn-gold",
+                    (!podeSalvar || salvando) ? "opacity-60 pointer-events-none" : "",
+                  ].join(" ")}
                   onClick={salvarDados}
                   disabled={!podeSalvar || salvando}
                 >
@@ -190,7 +271,9 @@ export default function ConfiguracoesCliente() {
               {/* Senha */}
               <div className="mt-8 border-t border-white/10 pt-6">
                 <h2 className="font-display text-xl">Alterar senha</h2>
-                <p className="text-white/70 mt-1 text-sm">Informe sua senha atual e defina uma nova.</p>
+                <p className="text-white/70 mt-1 text-sm">
+                  Informe sua senha atual e defina uma nova.
+                </p>
 
                 {erroSenha && (
                   <div className="alert-error mt-4 animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
@@ -228,7 +311,10 @@ export default function ConfiguracoesCliente() {
 
                 <div className="mt-5">
                   <button
-                    className={["btn-gold", salvandoSenha ? "opacity-60 pointer-events-none" : ""].join(" ")}
+                    className={[
+                      "btn-gold",
+                      salvandoSenha ? "opacity-60 pointer-events-none" : "",
+                    ].join(" ")}
                     onClick={salvarSenha}
                     disabled={salvandoSenha}
                   >
