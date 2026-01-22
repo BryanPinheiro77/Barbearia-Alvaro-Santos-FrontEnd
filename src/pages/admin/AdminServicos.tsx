@@ -5,6 +5,7 @@ import {
   desativarServicoAdmin,
   listarServicosAdmin,
   atualizarServicoAdmin,
+  excluirServicoAdmin,
   type ServicoDTO,
   type ServicoCreateDTO,
 } from "../../api/adminServicos";
@@ -77,11 +78,14 @@ export default function AdminServicos() {
 
     try {
       setErro(null);
-      if (editId) {
+
+      // IMPORTANTE: editId pode ser 0? No teu caso id é Long, então nunca 0.
+      if (editId !== null) {
         await atualizarServicoAdmin(editId, v.payload);
       } else {
         await criarServicoAdmin(v.payload);
       }
+
       await carregar();
       limparForm();
     } catch (e) {
@@ -100,16 +104,40 @@ export default function AdminServicos() {
   async function toggleAtivo(s: ServicoDTO) {
     try {
       setErro(null);
+
       if (s.ativo) {
-        if (!window.confirm("Desativar este serviço?")) return;
+        const ok = window.confirm("Desativar este serviço?");
+        if (!ok) return;
         await desativarServicoAdmin(s.id);
       } else {
         await ativarServicoAdmin(s.id);
       }
+
       await carregar();
     } catch (e) {
       console.error(e);
       setErro("Erro ao alterar status do serviço");
+    }
+  }
+
+  async function excluir(s: ServicoDTO) {
+    try {
+      setErro(null);
+
+      const ok = window.confirm(
+        `Excluir o serviço "${s.nome}"?\n\n` +
+          `Essa ação é permanente (DELETE real).`
+      );
+      if (!ok) return;
+
+      // se você estiver editando o mesmo serviço, sai do modo edição
+      if (editId === s.id) limparForm();
+
+      await excluirServicoAdmin(s.id);
+      await carregar();
+    } catch (e) {
+      console.error(e);
+      setErro("Erro ao excluir serviço");
     }
   }
 
@@ -144,10 +172,10 @@ export default function AdminServicos() {
         <CardContent>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
             <h2 className="font-semibold">
-              {editId ? `Editar serviço #${editId}` : "Novo serviço"}
+              {editId !== null ? `Editar serviço #${editId}` : "Novo serviço"}
             </h2>
 
-            {editId && <Badge tone="warning">Modo edição</Badge>}
+            {editId !== null && <Badge tone="warning">Modo edição</Badge>}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -185,10 +213,10 @@ export default function AdminServicos() {
 
           <div className="mt-4 flex flex-col sm:flex-row gap-2">
             <Button variant="primary" onClick={salvar}>
-              {editId ? "Salvar alterações" : "Criar"}
+              {editId !== null ? "Salvar alterações" : "Criar"}
             </Button>
 
-            {editId && (
+            {editId !== null && (
               <Button variant="secondary" onClick={limparForm}>
                 Cancelar edição
               </Button>
@@ -265,6 +293,10 @@ export default function AdminServicos() {
                   onClick={() => toggleAtivo(s)}
                 >
                   {s.ativo ? "Desativar" : "Ativar"}
+                </Button>
+
+                <Button variant="danger" onClick={() => excluir(s)}>
+                  Excluir
                 </Button>
               </div>
             </CardContent>

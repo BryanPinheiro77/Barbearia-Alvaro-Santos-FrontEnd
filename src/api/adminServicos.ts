@@ -39,3 +39,7 @@ export function desativarServicoAdmin(id: number) {
 export function ativarServicoAdmin(id: number) {
   return http<void>(`/servicos/${id}/ativar`, { method: "PATCH" });
 }
+
+export function excluirServicoAdmin(id: number) {
+  return http<void>(`/servicos/${id}`, { method: "DELETE" });
+}
