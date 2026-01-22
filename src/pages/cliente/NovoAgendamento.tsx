@@ -19,10 +19,31 @@ function brl(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function isMobileDevice() {
-  if (typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent || "";
-  return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(ua);
+
+// util: data "YYYY-MM-DD" é hoje?
+function isHoje(data: string) {
+  if (!data) return false;
+  const [yyyy, mm, dd] = data.split("-").map(Number);
+  const now = new Date();
+  return (
+    yyyy === now.getFullYear() &&
+    mm === now.getMonth() + 1 &&
+    dd === now.getDate()
+  );
+}
+
+// util: filtra horários passados se a data selecionada for hoje
+function filtrarHorariosPassadosHoje(data: string, horarios: string[], toleranciaMin = 0) {
+  if (!isHoje(data)) return horarios;
+
+  const now = new Date();
+  const nowWithTol = new Date(now.getTime() + toleranciaMin * 60 * 1000);
+
+  return horarios.filter((h) => {
+    const [hh, min] = h.split(":").map(Number);
+    const dt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, min, 0, 0);
+    return dt >= nowWithTol;
+  });
 }
 
 export default function NovoAgendamento() {
@@ -38,7 +59,7 @@ export default function NovoAgendamento() {
   const [horarios, setHorarios] = useState<string[]>([]);
   const [horarioSelecionado, setHorarioSelecionado] = useState("");
 
-  // LEMBRETE (AGORA É O STEP 4)
+  // LEMBRETE (STEP 4)
   const lembretesPreDefinidos = [
     { label: "Sem lembrete", value: 0 },
     { label: "15 minutos antes", value: 15 },
@@ -50,18 +71,28 @@ export default function NovoAgendamento() {
   const [lembreteMinutos, setLembreteMinutos] = useState<number>(30);
   const [lembretePersonalizado, setLembretePersonalizado] = useState(false);
 
-  // PAGAMENTO (AGORA É O STEP 5)
+  // PAGAMENTO (STEP 5)
   const [pagamentoTipo, setPagamentoTipo] =
     useState<CriarAgendamentoApi.FormaPagamentoTipo>("PIX");
   const [pagamentoModo, setPagamentoModo] =
     useState<CriarAgendamentoApi.FormaPagamentoModo>("PAGAR_NA_HORA");
+
+  const permiteOnline = pagamentoTipo === "PIX"; // por enquanto: só PIX pode ONLINE
+
+  // Garantia: se trocar para CARTAO/DINHEIRO, força PAGAR_NA_HORA
+  useEffect(() => {
+    if (!permiteOnline && pagamentoModo === "ONLINE") {
+      setPagamentoModo("PAGAR_NA_HORA");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagamentoTipo]);
 
   // PAGAMENTO ONLINE (estado)
   const [checkoutStatus, setCheckoutStatus] = useState<CheckoutStatus>("IDLE");
   const [pagamentoId, setPagamentoId] = useState<number | null>(null);
   const [pixQrBase64, setPixQrBase64] = useState<string | null>(null);
   const [pixCopiaCola, setPixCopiaCola] = useState<string | null>(null);
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const [, setCheckoutUrl] = useState<string | null>(null);
   const [, setAgendamentoOnlineId] = useState<number | null>(null);
   const pollingRef = useRef<number | null>(null);
 
@@ -108,7 +139,7 @@ export default function NovoAgendamento() {
   function limparPersistenciaPagamento() {
     localStorage.removeItem("ultimoPagamentoId");
     localStorage.removeItem("ultimoAgendamentoId");
-    localStorage.removeItem("novoAgendamentoDraft"); // caso exista de versões antigas
+    localStorage.removeItem("novoAgendamentoDraft");
   }
 
   // Carregar serviços
@@ -127,7 +158,7 @@ export default function NovoAgendamento() {
     })();
   }, []);
 
-  // Resets quando muda serviços ou data (muda tudo do fluxo)
+  // Resets quando muda serviços ou data
   useEffect(() => {
     setHorarios([]);
     setHorarioSelecionado("");
@@ -135,31 +166,20 @@ export default function NovoAgendamento() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [servicosSelecionados, data]);
 
-  // Resets quando muda horário (pode mudar total/agenda e invalida pagamento anterior)
+  // Resets quando muda horário
   useEffect(() => {
     if (checkoutStatus === "PAGO") return;
     limparPagamentoUi();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [horarioSelecionado]);
 
-  // Resets quando muda lembrete (evita pagar e depois alterar regra do lembrete do mesmo agendamento)
+  // Resets quando muda lembrete
   useEffect(() => {
     if (checkoutStatus === "IDLE") return;
     if (checkoutStatus === "PAGO") return;
     limparPagamentoUi();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lembreteMinutos, lembretePersonalizado]);
-
-  // ✅ Regra: online apenas para PIX. Cartão e Dinheiro => só pagar na hora.
-  useEffect(() => {
-    if (pagamentoTipo === "CARTAO" || pagamentoTipo === "DINHEIRO") {
-      if (pagamentoModo !== "PAGAR_NA_HORA") {
-        setPagamentoModo("PAGAR_NA_HORA");
-      }
-      limparPagamentoUi();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagamentoTipo]);
 
   useEffect(() => {
     return () => pararPolling();
@@ -179,11 +199,7 @@ export default function NovoAgendamento() {
   const step1Done = servicosSelecionados.length > 0;
   const step2Done = step1Done && !!data;
   const step3Done = step2Done && !!horarioSelecionado;
-
-  // lembrete tem default, então basta ter horário
   const step4Done = step3Done;
-
-  // pagamento é o final
   const step5Done = step4Done;
 
   const podeConfirmar =
@@ -233,10 +249,15 @@ export default function NovoAgendamento() {
         setLoadingHorarios(true);
 
         const resp = await listarHorariosDisponiveis(data, servicosSelecionados);
-
         if (reqId !== horariosReqIdRef.current) return;
 
-        setHorarios(resp.horarios || []);
+        const lista = filtrarHorariosPassadosHoje(data, resp.horarios || [], 0);
+        setHorarios(lista);
+
+        // Se o horário escolhido ficou inválido, limpa
+        if (horarioSelecionado && !lista.includes(horarioSelecionado)) {
+          setHorarioSelecionado("");
+        }
       } catch (e) {
         console.error(e);
         if (reqId !== horariosReqIdRef.current) return;
@@ -255,6 +276,7 @@ export default function NovoAgendamento() {
     }, 180);
 
     return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step2Done, data, servicosSelecionados]);
 
   async function confirmarAgendamentoPagarNaHora() {
@@ -288,7 +310,7 @@ export default function NovoAgendamento() {
   async function iniciarPagamentoOnline() {
     if (!user) return;
 
-    // ✅ Agora: online apenas para PIX
+    // Por enquanto: só PIX online
     if (pagamentoTipo !== "PIX") {
       setErro("Pagamento ONLINE está disponível apenas para PIX no momento.");
       return;
@@ -311,53 +333,31 @@ export default function NovoAgendamento() {
         servicosIds: servicosSelecionados,
         data,
         horarioInicio: horarioSelecionado,
-        formaPagamentoTipo: pagamentoTipo,
+        formaPagamentoTipo: "PIX",
         formaPagamentoModo: "ONLINE",
         lembreteMinutos,
       });
 
       agendamentoCriadoId = ag.id;
 
-      // 2) cria pagamento (PIX = PIX_DIRECT)
-      const estrategia: PagamentosApi.TipoPagamentoStrategy = "PIX_DIRECT";
-      const tipoPagamento: "PIX" | "CARTAO" = "PIX";
-
+      // 2) cria pagamento (PIX Direct)
       const pay = await PagamentosApi.criarPagamento({
         agendamentoId: ag.id,
-        tipoPagamento,
-        estrategia,
+        tipoPagamento: "PIX",
+        estrategia: "PIX_DIRECT",
       });
 
       setAgendamentoOnlineId(ag.id);
       setPagamentoId(pay.pagamentoId);
       setPixQrBase64(pay.qrCodeBase64);
       setPixCopiaCola(pay.copiaCola);
-      setCheckoutUrl(pay.checkoutUrl);
+      setCheckoutUrl(pay.checkoutUrl); // deve vir null no PIX_DIRECT
       setCheckoutStatus("AGUARDANDO_PAGAMENTO");
 
-      // Para a rota /pagamento/retorno
       localStorage.setItem("ultimoPagamentoId", String(pay.pagamentoId));
       localStorage.setItem("ultimoAgendamentoId", String(ag.id));
 
-      // 3) Se vier checkoutUrl (não esperado pro PIX_DIRECT, mas deixa robusto)
-      if (pay.checkoutUrl) {
-        const mobile = isMobileDevice();
-
-        if (mobile) {
-          window.location.assign(pay.checkoutUrl);
-          return;
-        }
-
-        const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
-        if (popup) {
-          popup.location.replace(pay.checkoutUrl);
-        } else {
-          window.location.assign(pay.checkoutUrl);
-        }
-        return;
-      }
-
-      // 4) PIX Direct: fica na tela e faz polling até PAGO.
+      // PIX Direct: sem redirect, faz polling
       pararPolling();
       pollingRef.current = window.setInterval(async () => {
         try {
@@ -366,7 +366,6 @@ export default function NovoAgendamento() {
           if (st.status === "PAGO") {
             setCheckoutStatus("PAGO");
             pararPolling();
-
             limparPersistenciaPagamento();
             navigate("/cliente", { replace: true });
             return;
@@ -384,15 +383,11 @@ export default function NovoAgendamento() {
     } catch (e) {
       console.error(e);
 
-      // Se falhou antes de redirecionar, cancela o agendamento criado
       if (agendamentoCriadoId) {
         try {
           await AgendamentosApi.cancelarAgendamento(agendamentoCriadoId);
         } catch (errCancel) {
-          console.error(
-            "Falha ao cancelar agendamento após erro no pagamento:",
-            errCancel
-          );
+          console.error("Falha ao cancelar agendamento após erro no pagamento:", errCancel);
         }
       }
 
@@ -485,9 +480,7 @@ export default function NovoAgendamento() {
                         {s.duracaoMinutos} min • {brl(s.preco)}
                       </p>
                       {ativo && (
-                        <p className="text-xs text-[#d9a441] mt-3">
-                          Selecionado
-                        </p>
+                        <p className="text-xs text-[#d9a441] mt-3">Selecionado</p>
                       )}
                     </button>
                   );
@@ -497,8 +490,7 @@ export default function NovoAgendamento() {
 
             {resumo.lista.length > 0 && (
               <div className="mt-4 text-sm text-white/75">
-                Total:{" "}
-                <strong className="text-white">{brl(resumo.total)}</strong> •{" "}
+                Total: <strong className="text-white">{brl(resumo.total)}</strong> •{" "}
                 {resumo.duracao} min
               </div>
             )}
@@ -514,11 +506,7 @@ export default function NovoAgendamento() {
             containerRef={step2Ref}
           >
             <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <CalendarPicker
-                value={data}
-                onChange={(v) => setData(v)}
-                minDate={new Date()}
-              />
+              <CalendarPicker value={data} onChange={(v) => setData(v)} minDate={new Date()} />
             </div>
           </Step>
 
@@ -538,23 +526,17 @@ export default function NovoAgendamento() {
                   <strong className="text-white">{horarioSelecionado}</strong>
                 </p>
               ) : (
-                <p className="text-sm text-white/70">
-                  Selecione um horário abaixo.
-                </p>
+                <p className="text-sm text-white/70">Selecione um horário abaixo.</p>
               )}
 
               {loadingHorarios && (
-                <p className="text-sm text-white/55">
-                  Carregando horários...
-                </p>
+                <p className="text-sm text-white/55">Carregando horários...</p>
               )}
             </div>
 
             {!loadingHorarios && horarios.length === 0 && (
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm font-medium text-white/90">
-                  Sem horários disponíveis
-                </p>
+                <p className="text-sm font-medium text-white/90">Sem horários disponíveis</p>
                 <p className="text-sm text-white/65 mt-2">
                   Selecione outro dia para ver novos horários.
                 </p>
@@ -597,7 +579,7 @@ export default function NovoAgendamento() {
             )}
           </Step>
 
-          {/* STEP 4 (LEMBRETE) */}
+          {/* STEP 4 */}
           <Step
             step={4}
             title="Lembrete"
@@ -641,11 +623,11 @@ export default function NovoAgendamento() {
             )}
           </Step>
 
-          {/* STEP 5 (PAGAMENTO) */}
+          {/* STEP 5 */}
           <Step
             step={5}
             title="Pagamento"
-            subtitle="Escolha o tipo e se será online ou na hora."
+            subtitle="Escolha o tipo e o modo de pagamento."
             open={step4Done}
             done={step5Done}
             containerRef={step5Ref}
@@ -657,9 +639,7 @@ export default function NovoAgendamento() {
                   className="select-dark"
                   value={pagamentoTipo}
                   onChange={(e) =>
-                    setPagamentoTipo(
-                      e.target.value as CriarAgendamentoApi.FormaPagamentoTipo
-                    )
+                    setPagamentoTipo(e.target.value as CriarAgendamentoApi.FormaPagamentoTipo)
                   }
                 >
                   <option value="PIX">PIX</option>
@@ -674,21 +654,16 @@ export default function NovoAgendamento() {
                   className="select-dark"
                   value={pagamentoModo}
                   onChange={(e) =>
-                    setPagamentoModo(
-                      e.target.value as CriarAgendamentoApi.FormaPagamentoModo
-                    )
+                    setPagamentoModo(e.target.value as CriarAgendamentoApi.FormaPagamentoModo)
                   }
                 >
                   <option value="PAGAR_NA_HORA">Pagar na hora</option>
-                  {/* ✅ Somente PIX pode ser online */}
-                  {pagamentoTipo === "PIX" && (
-                    <option value="ONLINE">Online</option>
-                  )}
+                  {permiteOnline && <option value="ONLINE">Online</option>}
                 </select>
 
-                {pagamentoTipo === "CARTAO" && (
-                  <p className="mt-2 text-sm text-white/60">
-                    Pagamento no cartão está disponível apenas no atendimento.
+                {!permiteOnline && (
+                  <p className="text-xs text-white/60 mt-2">
+                    Pagamento online disponível apenas para PIX no momento.
                   </p>
                 )}
               </div>
@@ -709,13 +684,12 @@ export default function NovoAgendamento() {
                 </button>
 
                 <p className="mt-3 text-sm text-white/70">
-                  Você pagará no atendimento. O lembrete será aplicado conforme
-                  selecionado.
+                  Você pagará no atendimento. O lembrete será aplicado conforme selecionado.
                 </p>
               </div>
             )}
 
-            {/* ONLINE (PIX) */}
+            {/* ONLINE (apenas PIX) */}
             {pagamentoModo === "ONLINE" && (
               <div className="mt-6">
                 {checkoutStatus === "IDLE" && (
@@ -732,9 +706,7 @@ export default function NovoAgendamento() {
                 )}
 
                 {checkoutStatus === "REDIRECIONANDO" && (
-                  <p className="text-sm text-white/70 mt-2">
-                    Preparando pagamento...
-                  </p>
+                  <p className="text-sm text-white/70 mt-2">Preparando pagamento...</p>
                 )}
 
                 {checkoutStatus === "AGUARDANDO_PAGAMENTO" && (
@@ -742,13 +714,6 @@ export default function NovoAgendamento() {
                     <p className="font-medium mb-2 text-white/90">
                       Aguardando confirmação do pagamento...
                     </p>
-
-                    {checkoutUrl && (
-                      <p className="text-sm text-white/65">
-                        Checkout iniciado. Ao finalizar o pagamento, você será
-                        redirecionado.
-                      </p>
-                    )}
 
                     {pixQrBase64 && (
                       <div className="mt-4">
@@ -763,9 +728,7 @@ export default function NovoAgendamento() {
 
                           {pixCopiaCola && (
                             <div className="w-full">
-                              <p className="text-xs text-white/60 mb-2">
-                                Copia e cola
-                              </p>
+                              <p className="text-xs text-white/60 mb-2">Copia e cola</p>
                               <textarea
                                 className="w-full rounded-2xl border border-white/10 bg-black/40 p-3 text-xs text-white/85"
                                 rows={4}
@@ -777,9 +740,7 @@ export default function NovoAgendamento() {
                                   className="btn-outline"
                                   onClick={async () => {
                                     try {
-                                      await navigator.clipboard.writeText(
-                                        pixCopiaCola
-                                      );
+                                      await navigator.clipboard.writeText(pixCopiaCola);
                                     } catch {}
                                   }}
                                 >
@@ -825,9 +786,8 @@ export default function NovoAgendamento() {
                 )}
 
                 <p className="mt-3 text-sm text-white/70">
-                  No pagamento online, o agendamento é criado para reservar o
-                  horário e o sistema confirma após o pagamento. Quando aprovado,
-                  você será levado para a área do cliente automaticamente.
+                  No pagamento online, o agendamento é criado para reservar o horário e o sistema confirma após o pagamento.
+                  Quando aprovado, você será levado para a área do cliente automaticamente.
                 </p>
               </div>
             )}
