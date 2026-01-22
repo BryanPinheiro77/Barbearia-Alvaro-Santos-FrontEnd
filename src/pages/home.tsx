@@ -19,10 +19,10 @@ import type { Servico } from "../api/servicos";
 import { listarServicosAtivos } from "../api/servicos";
 import { listarHorariosDisponiveis } from "../api/horarios";
 
-// ======= DADOS FIXOS (os que você já colocou) =======
+// ======= DADOS FIXOS =======
 const ENDERECO = "Rua Itaquaquecetuba, 144";
 const TELEFONE = "(11) 98898-6026";
-const WHATSAPP_E164 = "5511988986026"; // Brasil + DDD + número, sem símbolos
+const WHATSAPP_E164 = "5511988986026";
 const INSTAGRAM_URL = "https://instagram.com/barbeariaalvarosantos";
 
 // ======= Helpers =======
@@ -55,10 +55,37 @@ function pickIcon(nome: string) {
   return Scissors;
 }
 
-// Easing seguro para TS (cubic-bezier semelhante a easeOut)
+function isTodayIso(dateIso: string) {
+  return dateIso === hojeISO();
+}
+
+function parseHoraMin(hhmm: string) {
+  const [h, m] = hhmm.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return { h, m };
+}
+
+/**
+ * Remove horários passados quando dateIso é hoje.
+ * Regra: filtra tudo que for <= agora (minuto atual).
+ */
+function filtrarHorariosPassados(dateIso: string, horarios: string[]) {
+  if (!isTodayIso(dateIso)) return horarios;
+
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+
+  return horarios.filter((t) => {
+    const hm = parseHoraMin(t);
+    if (!hm) return false;
+    const tMin = hm.h * 60 + hm.m;
+    return tMin > nowMin;
+  });
+}
+
+// Easing
 const EASE_OUT: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
-// Variants SEM função (evita o erro de Variants)
 const fadeUpVariants = {
   hidden: { opacity: 0, y: 18 },
   show: { opacity: 1, y: 0 },
@@ -126,8 +153,7 @@ export default function Landing() {
 
         const data = hojeISO();
 
-        // Padrão: usa os 2 primeiros serviços para calcular disponibilidade
-        // (se preferir 1 só, troque para: const servicosIds = [servicos[0].id];
+        // Usa os 2 primeiros serviços para calcular disponibilidade
         const servicosIds = servicos.slice(0, 2).map((s) => s.id);
 
         const resp = await listarHorariosDisponiveis(data, servicosIds);
@@ -135,7 +161,12 @@ export default function Landing() {
         if (!alive) return;
 
         const horarios = resp?.horarios ?? [];
-        setHorariosHoje(horarios.slice(0, 6)); // mostra 6 na card
+
+        // ✅ primeiro filtra passados, depois limita quantidade exibida
+        const filtrados = filtrarHorariosPassados(data, horarios);
+
+        // Mostra 6 na card (ajuste se quiser mais)
+        setHorariosHoje(filtrados.slice(0, 6));
       } catch (e) {
         console.error(e);
         if (!alive) return;
@@ -446,7 +477,7 @@ function About() {
             <div className="mt-6 grid gap-3 text-white/75 text-sm">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-[#d9a441]" />
-                Seg–Sáb: 09:00–19:00
+                Seg–Sáb: 08:00–20:00
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-[#d9a441]" />
@@ -487,10 +518,10 @@ function About() {
 function CTA() {
   return (
     <section id="app" className="py-20">
-  <div className="container-page">
-    <InstallAppCTA />
-  </div>
-</section>
+      <div className="container-page">
+        <InstallAppCTA />
+      </div>
+    </section>
   );
 }
 
