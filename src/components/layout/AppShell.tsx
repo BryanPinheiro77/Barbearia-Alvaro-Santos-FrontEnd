@@ -55,7 +55,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Scissors className="h-4 w-4 text-[#d9a441]" />
             </div>
             <div className="min-w-0">
-              <p className="font-display text-lg truncate">Barbearia Álvaro Santos</p>
+              <p className="font-display text-lg truncate">
+                Barbearia Álvaro Santos
+              </p>
               <p className="text-xs text-white/60 truncate">
                 {isAdmin ? "Admin" : "Cliente"} • {user?.nome ?? ""}
               </p>
@@ -70,7 +72,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       {/* BODY */}
-      <div className="container-page pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-10">
+      <div className="container-page pt-6 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-10">
         <div className="flex gap-6">
           {/* SIDENAV (desktop) */}
           <aside className="hidden md:block w-64 shrink-0">
@@ -121,28 +123,39 @@ export function AppShell({ children }: { children: ReactNode }) {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-white/10 bg-black/70 backdrop-blur">
         <div
           className={[
-            "container-page py-2",
-            "grid gap-2",
-            mobileColsClass,
+            "container-page",
+            "pt-3",
+            "pb-[calc(env(safe-area-inset-bottom)+12px)]",
           ].join(" ")}
         >
-          {navItems.map((item) => {
-            const active = isActivePath(location.pathname, item.path);
-            return (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                className={[
-                  "px-2 py-2 rounded-xl text-xs transition border",
-                  active
-                    ? "bg-[#d9a441] text-black border-transparent font-semibold"
-                    : "bg-white/5 text-white/80 border-white/10",
-                ].join(" ")}
-              >
-                {item.label}
-              </button>
-            );
-          })}
+          <div className={["grid gap-2", mobileColsClass].join(" ")}>
+            {navItems.map((item) => {
+              const active = isActivePath(location.pathname, item.path);
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => navigate(item.path)}
+                  className={[
+                    // tamanho/altura maior no mobile
+                    "h-12",
+                    // garante alinhamento e evita “vazar” fora do pill
+                    "w-full min-w-0",
+                    "flex items-center justify-center",
+                    // texto inteiro (sem cortar) e com tipografia mais “compacta”
+                    "whitespace-nowrap",
+                    "text-[11px] leading-tight",
+                    // visual
+                    "px-2 rounded-2xl transition border",
+                    active
+                      ? "bg-[#d9a441] text-black border-transparent font-semibold"
+                      : "bg-white/5 text-white/80 border-white/10",
+                  ].join(" ")}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </nav>
     </div>
