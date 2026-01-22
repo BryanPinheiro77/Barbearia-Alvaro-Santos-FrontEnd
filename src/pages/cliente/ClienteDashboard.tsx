@@ -16,6 +16,14 @@ function parseDataLocal(yyyyMmDd: string) {
   return new Date(y, m - 1, d, 0, 0, 0, 0);
 }
 
+function parseDateTimeLocal(yyyyMmDd?: string, hhMm?: string) {
+  if (!yyyyMmDd || !hhMm) return null;
+  const [y, m, d] = yyyyMmDd.split("-").map(Number);
+  const [hh, mm] = hhMm.split(":").map(Number);
+  if (!y || !m || !d || Number.isNaN(hh) || Number.isNaN(mm)) return null;
+  return new Date(y, m - 1, d, hh, mm, 0, 0);
+}
+
 function inicioDeHoje() {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
@@ -32,12 +40,38 @@ function pagoPill(pago: boolean) {
     : "border-amber-500/25 bg-amber-500/10 text-amber-200";
 }
 
+function getCancelamentoInfo(a: AgendamentoApi.Agendamento, limiteHoras: number) {
+  if (a.status !== "AGENDADO") {
+    return { pode: false, motivo: "Só é possível cancelar agendamentos com status AGENDADO." };
+  }
+
+  const dt = parseDateTimeLocal(a.data, a.horarioInicio);
+  if (!dt) {
+    return { pode: false, motivo: "Não foi possível validar a data/horário do agendamento." };
+  }
+
+  const agora = new Date();
+  const limiteMs = limiteHoras * 60 * 60 * 1000;
+  const diff = dt.getTime() - agora.getTime();
+
+  if (diff <= 0) return { pode: false, motivo: "Este horário já passou." };
+
+  if (diff < limiteMs) {
+    return { pode: false, motivo: `Cancelamento permitido até ${limiteHoras} horas antes do horário.` };
+  }
+
+  return { pode: true, motivo: "" };
+}
+
 export default function ClienteDashboard() {
   const navigate = useNavigate();
 
   const [agendamentos, setAgendamentos] = useState<AgendamentoApi.Agendamento[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [erro, setErro] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
   const [cancelandoId, setCancelandoId] = useState<number | null>(null);
   const [removendoIds, setRemovendoIds] = useState<number[]>([]);
 
@@ -79,21 +113,27 @@ export default function ClienteDashboard() {
       });
   }, [agendamentos]);
 
-  async function cancelarAgendamento(id: number) {
+  async function cancelarAgendamento(ag: AgendamentoApi.Agendamento) {
     try {
       setErro(null);
-      setCancelandoId(id);
+      setInfo(null);
 
-      setRemovendoIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-      await AgendamentoApi.cancelarAgendamento(id);
+      setCancelandoId(ag.id);
+
+      setRemovendoIds((prev) => (prev.includes(ag.id) ? prev : [...prev, ag.id]));
+      await AgendamentoApi.cancelarAgendamento(ag.id);
+
+      if (ag.pago) {
+        setInfo("Agendamento cancelado. Entre em contato com o barbeiro para receber o reembolso.");
+      }
 
       window.setTimeout(() => {
-        setAgendamentos((prev) => prev.filter((a) => a.id !== id));
-        setRemovendoIds((prev) => prev.filter((x) => x !== id));
+        setAgendamentos((prev) => prev.filter((a) => a.id !== ag.id));
+        setRemovendoIds((prev) => prev.filter((x) => x !== ag.id));
       }, 180);
     } catch (e) {
       console.error(e);
-      setRemovendoIds((prev) => prev.filter((x) => x !== id));
+      setRemovendoIds((prev) => prev.filter((x) => x !== ag.id));
       setErro("Não foi possível cancelar o agendamento. Tente novamente.");
     } finally {
       setCancelandoId(null);
@@ -110,15 +150,18 @@ export default function ClienteDashboard() {
             <p className="text-white/70 mt-2">Gerencie seus horários e pagamentos.</p>
           </div>
 
-          <button
-            className="btn-gold"
-            onClick={() => navigate("/cliente/novo-agendamento")}
-          >
+          <button className="btn-gold" onClick={() => navigate("/cliente/novo-agendamento")}>
             Novo agendamento
           </button>
         </div>
 
         {erro && <div className="alert-error mb-4">{erro}</div>}
+
+        {info && (
+          <div className="mb-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/85">
+            {info}
+          </div>
+        )}
 
         {loading && (
           <div className="space-y-3">
@@ -146,10 +189,7 @@ export default function ClienteDashboard() {
           <div className="card animate-[fadeInUp_.22s_ease-out_forwards] opacity-0">
             <p className="text-white/70 text-sm">Você não possui agendamentos futuros.</p>
             <div className="mt-4">
-              <button
-                className="btn-outline"
-                onClick={() => navigate("/cliente/novo-agendamento")}
-              >
+              <button className="btn-outline" onClick={() => navigate("/cliente/novo-agendamento")}>
                 Agendar agora
               </button>
             </div>
@@ -165,9 +205,18 @@ export default function ClienteDashboard() {
               const total =
                 a.servicos?.length ? a.servicos.reduce((acc, s) => acc + (s.preco ?? 0), 0) : 0;
 
-              const podeCancelar = a.status !== "CANCELADO" && !a.pago;
+              // regra: cancela até 5h antes, mesmo pago
+              const { pode: podeCancelarPorRegra, motivo } = getCancelamentoInfo(a, 5);
+              const podeCancelar = a.status !== "CANCELADO" && podeCancelarPorRegra;
+
               const estaCancelando = cancelandoId === a.id;
               const removendo = removendoIds.includes(a.id);
+
+              const tooltipCancelar = !podeCancelarPorRegra
+                ? motivo
+                : a.pago
+                ? "Agendamento pago: ao cancelar, entre em contato com o barbeiro para reembolso."
+                : "Cancelar agendamento";
 
               return (
                 <div
@@ -208,22 +257,25 @@ export default function ClienteDashboard() {
                         </span>
                       </div>
 
-                      <div className="mt-4">
+                      <div className="mt-4" title={tooltipCancelar}>
                         <button
                           className={[
                             "btn-outline w-full justify-center",
-                            !podeCancelar || estaCancelando ? "opacity-60 pointer-events-none" : "",
+                            !podeCancelar || estaCancelando
+                              ? "opacity-60 pointer-events-none"
+                              : "",
                           ].join(" ")}
-                          onClick={() => cancelarAgendamento(a.id)}
-                          title={
-                            a.pago
-                              ? "Não é possível cancelar um agendamento pago."
-                              : "Cancelar agendamento"
-                          }
+                          onClick={() => cancelarAgendamento(a)}
                         >
                           {estaCancelando ? "Cancelando..." : "Cancelar"}
                         </button>
                       </div>
+
+                      {!podeCancelarPorRegra && (
+                        <p className="mt-2 text-xs text-white/55 max-w-[220px]">
+                          {motivo}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

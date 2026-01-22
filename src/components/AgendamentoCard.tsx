@@ -17,6 +17,42 @@ function formatarPagamento(ag: Agendamento) {
   return `${meio} (${modoLabel})`;
 }
 
+function parseDateTimeLocal(yyyyMmDd?: string, hhMm?: string) {
+  if (!yyyyMmDd || !hhMm) return null;
+  const [y, m, d] = yyyyMmDd.split("-").map(Number);
+  const [hh, mm] = hhMm.split(":").map(Number);
+  if (!y || !m || !d || Number.isNaN(hh) || Number.isNaN(mm)) return null;
+  return new Date(y, m - 1, d, hh, mm, 0, 0);
+}
+
+function getCancelamentoInfo(ag: Agendamento, limiteHoras: number) {
+  if (ag.status !== "AGENDADO") {
+    return { pode: false, motivo: "Só é possível cancelar agendamentos com status AGENDADO." };
+  }
+
+  const dt = parseDateTimeLocal(ag.data, ag.horarioInicio);
+  if (!dt) {
+    return { pode: false, motivo: "Não foi possível validar a data/horário do agendamento." };
+  }
+
+  const agora = new Date();
+  const limiteMs = limiteHoras * 60 * 60 * 1000;
+  const diff = dt.getTime() - agora.getTime();
+
+  if (diff <= 0) {
+    return { pode: false, motivo: "Este horário já passou." };
+  }
+
+  if (diff < limiteMs) {
+    return {
+      pode: false,
+      motivo: `Cancelamento permitido até ${limiteHoras} horas antes do horário.`,
+    };
+  }
+
+  return { pode: true, motivo: "" };
+}
+
 export function AgendamentoCard({ agendamento, onConcluir, onCancelar }: Props) {
   const servicosLabel =
     agendamento.servicos?.length
@@ -36,6 +72,15 @@ export function AgendamentoCard({ agendamento, onConcluir, onCancelar }: Props) 
 
   const tonePago: "success" | "warning" = agendamento.pago ? "success" : "warning";
   const podeAcao = agendamento.status === "AGENDADO" && (onConcluir || onCancelar);
+
+  const { pode: podeCancelarPorHorario, motivo } = getCancelamentoInfo(agendamento, 5);
+  const podeCancelar = !!onCancelar && podeCancelarPorHorario;
+
+  const tooltipCancelar = !podeCancelarPorHorario
+    ? motivo
+    : agendamento.pago
+    ? "Ao cancelar um agendamento pago, o reembolso é tratado diretamente com o barbeiro."
+    : "Cancelar agendamento";
 
   return (
     <Card className="overflow-hidden animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
@@ -76,9 +121,15 @@ export function AgendamentoCard({ agendamento, onConcluir, onCancelar }: Props) 
             )}
 
             {onCancelar && (
-              <Button variant="danger" onClick={() => onCancelar(agendamento.id)}>
-                Cancelar
-              </Button>
+              <div title={tooltipCancelar}>
+                <Button
+                  variant="danger"
+                  onClick={() => onCancelar(agendamento.id)}
+                  disabled={!podeCancelar}
+                >
+                  Cancelar
+                </Button>
+              </div>
             )}
           </div>
         )}
