@@ -150,6 +150,17 @@ export default function NovoAgendamento() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lembreteMinutos, lembretePersonalizado]);
 
+  // ✅ Regra: online apenas para PIX. Cartão e Dinheiro => só pagar na hora.
+  useEffect(() => {
+    if (pagamentoTipo === "CARTAO" || pagamentoTipo === "DINHEIRO") {
+      if (pagamentoModo !== "PAGAR_NA_HORA") {
+        setPagamentoModo("PAGAR_NA_HORA");
+      }
+      limparPagamentoUi();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagamentoTipo]);
+
   useEffect(() => {
     return () => pararPolling();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -175,7 +186,8 @@ export default function NovoAgendamento() {
   // pagamento é o final
   const step5Done = step4Done;
 
-  const podeConfirmar = !!user && data && horarioSelecionado && servicosSelecionados.length > 0;
+  const podeConfirmar =
+    !!user && data && horarioSelecionado && servicosSelecionados.length > 0;
 
   // Auto-scroll quando os steps liberarem
   const prevStep1Done = useRef(false);
@@ -276,8 +288,9 @@ export default function NovoAgendamento() {
   async function iniciarPagamentoOnline() {
     if (!user) return;
 
-    if (pagamentoTipo === "DINHEIRO") {
-      setErro("Pagamento ONLINE não é permitido para Dinheiro. Selecione PIX ou Cartão.");
+    // ✅ Agora: online apenas para PIX
+    if (pagamentoTipo !== "PIX") {
+      setErro("Pagamento ONLINE está disponível apenas para PIX no momento.");
       return;
     }
 
@@ -305,12 +318,9 @@ export default function NovoAgendamento() {
 
       agendamentoCriadoId = ag.id;
 
-      // 2) cria pagamento
-      const estrategia: PagamentosApi.TipoPagamentoStrategy =
-        pagamentoTipo === "PIX" ? "PIX_DIRECT" : "CHECKOUT_PRO";
-
-      const tipoPagamento: "PIX" | "CARTAO" =
-        pagamentoTipo === "PIX" ? "PIX" : "CARTAO";
+      // 2) cria pagamento (PIX = PIX_DIRECT)
+      const estrategia: PagamentosApi.TipoPagamentoStrategy = "PIX_DIRECT";
+      const tipoPagamento: "PIX" | "CARTAO" = "PIX";
 
       const pay = await PagamentosApi.criarPagamento({
         agendamentoId: ag.id,
@@ -329,8 +339,7 @@ export default function NovoAgendamento() {
       localStorage.setItem("ultimoPagamentoId", String(pay.pagamentoId));
       localStorage.setItem("ultimoAgendamentoId", String(ag.id));
 
-      // 3) Se vier checkoutUrl (cartão checkout / redirect), redireciona.
-      //    Em mobile, sempre na mesma aba.
+      // 3) Se vier checkoutUrl (não esperado pro PIX_DIRECT, mas deixa robusto)
       if (pay.checkoutUrl) {
         const mobile = isMobileDevice();
 
@@ -339,7 +348,6 @@ export default function NovoAgendamento() {
           return;
         }
 
-        // desktop: tenta popup (melhor UX), mas cai no redirect se bloquear
         const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
         if (popup) {
           popup.location.replace(pay.checkoutUrl);
@@ -349,7 +357,7 @@ export default function NovoAgendamento() {
         return;
       }
 
-      // 4) Se NÃO tiver checkoutUrl (PIX Direct), fica na tela e faz polling até PAGO.
+      // 4) PIX Direct: fica na tela e faz polling até PAGO.
       pararPolling();
       pollingRef.current = window.setInterval(async () => {
         try {
@@ -359,7 +367,6 @@ export default function NovoAgendamento() {
             setCheckoutStatus("PAGO");
             pararPolling();
 
-            // fluxo termina aqui
             limparPersistenciaPagamento();
             navigate("/cliente", { replace: true });
             return;
@@ -382,7 +389,10 @@ export default function NovoAgendamento() {
         try {
           await AgendamentosApi.cancelarAgendamento(agendamentoCriadoId);
         } catch (errCancel) {
-          console.error("Falha ao cancelar agendamento após erro no pagamento:", errCancel);
+          console.error(
+            "Falha ao cancelar agendamento após erro no pagamento:",
+            errCancel
+          );
         }
       }
 
@@ -428,7 +438,9 @@ export default function NovoAgendamento() {
           <div>
             <span className="tag">Cliente</span>
             <h1 className="font-display text-3xl mt-3">Novo agendamento</h1>
-            <p className="text-white/70 mt-2">Selecione serviços, data, horário, lembrete e pagamento.</p>
+            <p className="text-white/70 mt-2">
+              Selecione serviços, data, horário, lembrete e pagamento.
+            </p>
           </div>
 
           <button className="btn-outline" onClick={() => navigate("/cliente")}>
@@ -472,7 +484,11 @@ export default function NovoAgendamento() {
                       <p className="text-sm text-white/65 mt-1">
                         {s.duracaoMinutos} min • {brl(s.preco)}
                       </p>
-                      {ativo && <p className="text-xs text-[#d9a441] mt-3">Selecionado</p>}
+                      {ativo && (
+                        <p className="text-xs text-[#d9a441] mt-3">
+                          Selecionado
+                        </p>
+                      )}
                     </button>
                   );
                 })}
@@ -481,8 +497,9 @@ export default function NovoAgendamento() {
 
             {resumo.lista.length > 0 && (
               <div className="mt-4 text-sm text-white/75">
-                Total: <strong className="text-white">{brl(resumo.total)}</strong> • {resumo.duracao}{" "}
-                min
+                Total:{" "}
+                <strong className="text-white">{brl(resumo.total)}</strong> •{" "}
+                {resumo.duracao} min
               </div>
             )}
           </Step>
@@ -497,7 +514,11 @@ export default function NovoAgendamento() {
             containerRef={step2Ref}
           >
             <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <CalendarPicker value={data} onChange={(v) => setData(v)} minDate={new Date()} />
+              <CalendarPicker
+                value={data}
+                onChange={(v) => setData(v)}
+                minDate={new Date()}
+              />
             </div>
           </Step>
 
@@ -513,19 +534,30 @@ export default function NovoAgendamento() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
               {horarioSelecionado ? (
                 <p className="text-sm text-white/70">
-                  Selecionado: <strong className="text-white">{horarioSelecionado}</strong>
+                  Selecionado:{" "}
+                  <strong className="text-white">{horarioSelecionado}</strong>
                 </p>
               ) : (
-                <p className="text-sm text-white/70">Selecione um horário abaixo.</p>
+                <p className="text-sm text-white/70">
+                  Selecione um horário abaixo.
+                </p>
               )}
 
-              {loadingHorarios && <p className="text-sm text-white/55">Carregando horários...</p>}
+              {loadingHorarios && (
+                <p className="text-sm text-white/55">
+                  Carregando horários...
+                </p>
+              )}
             </div>
 
             {!loadingHorarios && horarios.length === 0 && (
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm font-medium text-white/90">Sem horários disponíveis</p>
-                <p className="text-sm text-white/65 mt-2">Selecione outro dia para ver novos horários.</p>
+                <p className="text-sm font-medium text-white/90">
+                  Sem horários disponíveis
+                </p>
+                <p className="text-sm text-white/65 mt-2">
+                  Selecione outro dia para ver novos horários.
+                </p>
 
                 <div className="mt-4">
                   <button
@@ -565,7 +597,7 @@ export default function NovoAgendamento() {
             )}
           </Step>
 
-          {/* STEP 4 (AGORA É LEMBRETE) */}
+          {/* STEP 4 (LEMBRETE) */}
           <Step
             step={4}
             title="Lembrete"
@@ -609,7 +641,7 @@ export default function NovoAgendamento() {
             )}
           </Step>
 
-          {/* STEP 5 (AGORA É PAGAMENTO) */}
+          {/* STEP 5 (PAGAMENTO) */}
           <Step
             step={5}
             title="Pagamento"
@@ -625,7 +657,9 @@ export default function NovoAgendamento() {
                   className="select-dark"
                   value={pagamentoTipo}
                   onChange={(e) =>
-                    setPagamentoTipo(e.target.value as CriarAgendamentoApi.FormaPagamentoTipo)
+                    setPagamentoTipo(
+                      e.target.value as CriarAgendamentoApi.FormaPagamentoTipo
+                    )
                   }
                 >
                   <option value="PIX">PIX</option>
@@ -640,12 +674,23 @@ export default function NovoAgendamento() {
                   className="select-dark"
                   value={pagamentoModo}
                   onChange={(e) =>
-                    setPagamentoModo(e.target.value as CriarAgendamentoApi.FormaPagamentoModo)
+                    setPagamentoModo(
+                      e.target.value as CriarAgendamentoApi.FormaPagamentoModo
+                    )
                   }
                 >
                   <option value="PAGAR_NA_HORA">Pagar na hora</option>
-                  <option value="ONLINE">Online</option>
+                  {/* ✅ Somente PIX pode ser online */}
+                  {pagamentoTipo === "PIX" && (
+                    <option value="ONLINE">Online</option>
+                  )}
                 </select>
+
+                {pagamentoTipo === "CARTAO" && (
+                  <p className="mt-2 text-sm text-white/60">
+                    Pagamento no cartão está disponível apenas no atendimento.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -653,7 +698,10 @@ export default function NovoAgendamento() {
             {pagamentoModo !== "ONLINE" && (
               <div className="mt-6">
                 <button
-                  className={["btn-gold", !podeConfirmar ? "opacity-60 pointer-events-none" : ""].join(" ")}
+                  className={[
+                    "btn-gold",
+                    !podeConfirmar ? "opacity-60 pointer-events-none" : "",
+                  ].join(" ")}
                   disabled={!podeConfirmar}
                   onClick={confirmarAgendamentoPagarNaHora}
                 >
@@ -661,17 +709,21 @@ export default function NovoAgendamento() {
                 </button>
 
                 <p className="mt-3 text-sm text-white/70">
-                  Você pagará no atendimento. O lembrete será aplicado conforme selecionado.
+                  Você pagará no atendimento. O lembrete será aplicado conforme
+                  selecionado.
                 </p>
               </div>
             )}
 
-            {/* ONLINE */}
+            {/* ONLINE (PIX) */}
             {pagamentoModo === "ONLINE" && (
               <div className="mt-6">
                 {checkoutStatus === "IDLE" && (
                   <button
-                    className={["btn-gold", !podeConfirmar ? "opacity-60 pointer-events-none" : ""].join(" ")}
+                    className={[
+                      "btn-gold",
+                      !podeConfirmar ? "opacity-60 pointer-events-none" : "",
+                    ].join(" ")}
                     onClick={iniciarPagamentoOnline}
                     disabled={!podeConfirmar}
                   >
@@ -680,16 +732,21 @@ export default function NovoAgendamento() {
                 )}
 
                 {checkoutStatus === "REDIRECIONANDO" && (
-                  <p className="text-sm text-white/70 mt-2">Preparando pagamento...</p>
+                  <p className="text-sm text-white/70 mt-2">
+                    Preparando pagamento...
+                  </p>
                 )}
 
                 {checkoutStatus === "AGUARDANDO_PAGAMENTO" && (
                   <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="font-medium mb-2 text-white/90">Aguardando confirmação do pagamento...</p>
+                    <p className="font-medium mb-2 text-white/90">
+                      Aguardando confirmação do pagamento...
+                    </p>
 
                     {checkoutUrl && (
                       <p className="text-sm text-white/65">
-                        Checkout iniciado. Ao finalizar o pagamento, você será redirecionado.
+                        Checkout iniciado. Ao finalizar o pagamento, você será
+                        redirecionado.
                       </p>
                     )}
 
@@ -706,7 +763,9 @@ export default function NovoAgendamento() {
 
                           {pixCopiaCola && (
                             <div className="w-full">
-                              <p className="text-xs text-white/60 mb-2">Copia e cola</p>
+                              <p className="text-xs text-white/60 mb-2">
+                                Copia e cola
+                              </p>
                               <textarea
                                 className="w-full rounded-2xl border border-white/10 bg-black/40 p-3 text-xs text-white/85"
                                 rows={4}
@@ -718,7 +777,9 @@ export default function NovoAgendamento() {
                                   className="btn-outline"
                                   onClick={async () => {
                                     try {
-                                      await navigator.clipboard.writeText(pixCopiaCola);
+                                      await navigator.clipboard.writeText(
+                                        pixCopiaCola
+                                      );
                                     } catch {}
                                   }}
                                 >
@@ -732,11 +793,12 @@ export default function NovoAgendamento() {
                     )}
 
                     {pagamentoId && (
-                      <p className="mt-3 text-xs text-white/50">Pagamento #{pagamentoId}</p>
+                      <p className="mt-3 text-xs text-white/50">
+                        Pagamento #{pagamentoId}
+                      </p>
                     )}
 
                     <div className="mt-4 flex flex-wrap gap-2">
-                      {/* útil principalmente para PIX Direct */}
                       <button className="btn-outline" onClick={verificarStatusAgora}>
                         Verificar status
                       </button>
@@ -763,8 +825,9 @@ export default function NovoAgendamento() {
                 )}
 
                 <p className="mt-3 text-sm text-white/70">
-                  No pagamento online, o agendamento é criado para reservar o horário e o sistema confirma após o pagamento.
-                  Quando aprovado, você será levado para a área do cliente automaticamente.
+                  No pagamento online, o agendamento é criado para reservar o
+                  horário e o sistema confirma após o pagamento. Quando aprovado,
+                  você será levado para a área do cliente automaticamente.
                 </p>
               </div>
             )}
