@@ -142,7 +142,7 @@ export default function Login() {
                       <button
                         type="button"
                         className="text-xs text-white/65 underline hover:text-white"
-                        onClick={() => setErro("Recuperação de senha: implementaremos nas Configurações.")}
+                        onClick={() => setErro("Recuperação de senha: entre em contato pelo whatsapp.")}
                       >
                         Esqueci a senha
                       </button>
