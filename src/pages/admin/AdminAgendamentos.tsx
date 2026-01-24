@@ -33,7 +33,7 @@ export default function AdminAgendamentos() {
   const [erro, setErro] = useState<string | null>(null);
 
   const [periodo, setPeriodo] = useState<PeriodoTipo>("HOJE");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState("AGENDADO");
   const [clienteBusca, setClienteBusca] = useState("");
 
   const [dataUnica, setDataUnica] = useState("");
@@ -129,7 +129,7 @@ export default function AdminAgendamentos() {
 
   function limparFiltros() {
     setPeriodo("HOJE");
-    setStatus("AGENDADO");
+    setStatus("");
     setClienteBusca("");
     setDataUnica("");
     setInicio("");
