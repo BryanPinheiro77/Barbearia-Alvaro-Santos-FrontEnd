@@ -219,6 +219,7 @@ export default function AdminAgendamentos() {
             agendamento={a}
             onConcluir={concluir}
             onCancelar={cancelar}
+            modo="ADMIN"
           />
         ))}
       </div>

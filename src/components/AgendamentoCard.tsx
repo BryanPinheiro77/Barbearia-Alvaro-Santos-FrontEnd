@@ -7,6 +7,12 @@ interface Props {
   agendamento: Agendamento;
   onConcluir?: (id: number) => void;
   onCancelar?: (id: number) => void;
+
+  // ✅ novo: define regras de cancelamento
+  modo?: "ADMIN" | "CLIENTE";
+
+  // ✅ opcional: limite em horas para o cliente (default 2)
+  limiteCancelamentoHoras?: number;
 }
 
 function formatarPagamento(ag: Agendamento) {
@@ -53,7 +59,13 @@ function getCancelamentoInfo(ag: Agendamento, limiteHoras: number) {
   return { pode: true, motivo: "" };
 }
 
-export function AgendamentoCard({ agendamento, onConcluir, onCancelar }: Props) {
+export function AgendamentoCard({
+  agendamento,
+  onConcluir,
+  onCancelar,
+  modo = "ADMIN",
+  limiteCancelamentoHoras = 2,
+}: Props) {
   const servicosLabel =
     agendamento.servicos?.length
       ? agendamento.servicos.map((s) => s.nome).join(" + ")
@@ -71,16 +83,31 @@ export function AgendamentoCard({ agendamento, onConcluir, onCancelar }: Props) 
       : "warning";
 
   const tonePago: "success" | "warning" = agendamento.pago ? "success" : "warning";
-  const podeAcao = agendamento.status === "AGENDADO" && (onConcluir || onCancelar);
 
-  const { pode: podeCancelarPorHorario, motivo } = getCancelamentoInfo(agendamento, 5);
-  const podeCancelar = !!onCancelar && podeCancelarPorHorario;
+  const podeAcao = (onConcluir || onCancelar) && agendamento.status !== "CANCELADO";
 
-  const tooltipCancelar = !podeCancelarPorHorario
-    ? motivo
-    : agendamento.pago
-    ? "Ao cancelar um agendamento pago, o reembolso é tratado diretamente com o barbeiro."
-    : "Cancelar agendamento";
+  // ✅ Regra do ADMIN: pode cancelar independente do horário (apenas respeita status)
+  const podeCancelarAdmin = agendamento.status !== "CONCLUIDO" && agendamento.status !== "CANCELADO";
+
+  // ✅ Regra do CLIENTE: aplica limite de tempo
+  const { pode: podeCancelarPorHorario, motivo } = getCancelamentoInfo(
+    agendamento,
+    limiteCancelamentoHoras
+  );
+  const podeCancelarCliente = agendamento.status !== "CANCELADO" && podeCancelarPorHorario;
+
+  const podeCancelar = !!onCancelar && (modo === "ADMIN" ? podeCancelarAdmin : podeCancelarCliente);
+
+  const tooltipCancelar =
+    modo === "ADMIN"
+      ? agendamento.status === "CONCLUIDO"
+        ? "Agendamento concluído não pode ser cancelado."
+        : "Cancelar agendamento"
+      : !podeCancelarPorHorario
+      ? motivo
+      : agendamento.pago
+      ? "Agendamento pago: ao cancelar, entre em contato com o barbeiro para reembolso."
+      : "Cancelar agendamento";
 
   return (
     <Card className="overflow-hidden animate-[fadeInUp_.18s_ease-out_forwards] opacity-0">
@@ -114,7 +141,7 @@ export function AgendamentoCard({ agendamento, onConcluir, onCancelar }: Props) 
 
         {podeAcao && (
           <div className="flex gap-2 sm:flex-col sm:items-stretch sm:min-w-[180px]">
-            {onConcluir && (
+            {onConcluir && agendamento.status === "AGENDADO" && (
               <Button variant="primary" onClick={() => onConcluir(agendamento.id)}>
                 Concluir
               </Button>
