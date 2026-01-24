@@ -43,7 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     () => [
       { label: "Agenda", path: "/admin/agendamentos" },
       { label: "Dashboard", path: "/admin" },
-      { label: "Horários", path: "/admin/horarios" },
+      { label: "Criar Agendamento", path: "/admin/agendamentos/novo" },
       { label: "Serviços", path: "/admin/servicos" },
     ],
     []
@@ -54,7 +54,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     () => [
       { label: "Relatórios", path: "/admin/relatorios" },
       { label: "Clientes", path: "/admin/clientes" },
-      { label: "Criar Agendamento", path: "/admin/agendamentos/novo" },
+      { label: "Horários", path: "/admin/horarios" },
     ],
     []
   );
