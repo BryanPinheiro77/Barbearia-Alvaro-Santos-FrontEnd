@@ -129,7 +129,7 @@ export default function AdminAgendamentos() {
 
   function limparFiltros() {
     setPeriodo("HOJE");
-    setStatus("");
+    setStatus("AGENDADO");
     setClienteBusca("");
     setDataUnica("");
     setInicio("");
