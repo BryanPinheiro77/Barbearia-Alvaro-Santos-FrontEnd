@@ -3,19 +3,22 @@ import { useAuth } from "./auth/AuthContext";
 import { PrivateRoute } from "./auth/PrivateRoute";
 
 import Login from "./pages/login";
+import Index from "./pages/home";
+
+import Register from "./pages/cliente/Register";
 import ClienteDashboard from "./pages/cliente/ClienteDashboard";
 import NovoAgendamento from "./pages/cliente/NovoAgendamento";
+import ClienteHistorico from "./pages/cliente/ClienteHistorico";
+import ClienteConfiguracoes from "./pages/cliente/ConfiguracoesCliente";
+import PagamentoRetorno from "./pages/cliente/PagamentoRetorno";
+
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAgendamentos from "./pages/admin/AdminAgendamentos";
 import AdminServicos from "./pages/admin/AdminServicos";
 import AdminHorarios from "./pages/admin/AdminHorarios";
-import Register from "./pages/cliente/Register";
-import ClienteHistorico from "./pages/cliente/ClienteHistorico";
 import AdminRelatorios from "./pages/admin/AdminRelatorios";
-import Index from "./pages/home";
-import PagamentoRetorno from "./pages/cliente/PagamentoRetorno";
-import ClienteConfiguracoes from "./pages/cliente/ConfiguracoesCliente";
-
+import AdminNovoAgendamento from "./pages/admin/AdminNovoAgendamento";
+import AdminClientes from "./pages/admin/AdminClientes";
 
 export default function App() {
   const { user } = useAuth();
@@ -23,21 +26,33 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Login */}
+        {/* Landing */}
+        <Route path="/" element={<Index />} />
+
+        {/* Redirect central (opcional) */}
         <Route
-  path="/login"
-  element={
-    user ? (
-      <Navigate to={user.tipo === "ADMIN" ? "/admin" : "/cliente"} replace />
-    ) : (
-      <Login />
-    )
-  }
-/>
+          path="/app"
+          element={
+            user ? (
+              <Navigate to={user.tipo === "ADMIN" ? "/admin" : "/cliente"} replace />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
 
-<Route path="/register" element={<Register />} />
-
-<Route path="/" element={<Index/>} />
+        {/* Auth */}
+        <Route
+          path="/login"
+          element={
+            user ? (
+              <Navigate to={user.tipo === "ADMIN" ? "/admin" : "/cliente"} replace />
+            ) : (
+              <Login />
+            )
+          }
+        />
+        <Route path="/register" element={<Register />} />
 
         {/* Cliente */}
         <Route
@@ -54,6 +69,15 @@ export default function App() {
           element={
             <PrivateRoute allow={["CLIENTE"]}>
               <NovoAgendamento />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/cliente/historico"
+          element={
+            <PrivateRoute allow={["CLIENTE"]}>
+              <ClienteHistorico />
             </PrivateRoute>
           }
         />
@@ -76,15 +100,6 @@ export default function App() {
           }
         />
 
-        <Route
-  path="/cliente/historico"
-  element={
-    <PrivateRoute>
-      <ClienteHistorico />
-    </PrivateRoute>
-  }
-/>
-
         {/* Admin */}
         <Route
           path="/admin"
@@ -105,45 +120,47 @@ export default function App() {
         />
 
         <Route
-  path="/admin/horarios"
-  element={
-    <PrivateRoute>
-      <AdminHorarios />
-    </PrivateRoute>
-  }
-/>
-
-        <Route
-  path="/admin/servicos"
-  element={
-    <PrivateRoute>
-      <AdminServicos />
-    </PrivateRoute>
-  }
-/>
-
-<Route
-  path="/admin/relatorios"
-  element={
-    <PrivateRoute allow={["ADMIN"]}>
-      <AdminRelatorios />
-    </PrivateRoute>
-  }
-/>
-
-        {/* Redirecionamento raiz */}
-        <Route
-          path="/"
+          path="/admin/agendamentos/novo"
           element={
-            user ? (
-              user.tipo === "ADMIN" ? (
-                <Navigate to="/admin" replace />
-              ) : (
-                <Navigate to="/cliente" replace />
-              )
-            ) : (
-              <Navigate to="/login" replace />
-            )
+            <PrivateRoute allow={["ADMIN"]}>
+              <AdminNovoAgendamento />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/admin/clientes"
+          element={
+            <PrivateRoute allow={["ADMIN"]}>
+              <AdminClientes />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/admin/servicos"
+          element={
+            <PrivateRoute allow={["ADMIN"]}>
+              <AdminServicos />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/admin/horarios"
+          element={
+            <PrivateRoute allow={["ADMIN"]}>
+              <AdminHorarios />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/admin/relatorios"
+          element={
+            <PrivateRoute allow={["ADMIN"]}>
+              <AdminRelatorios />
+            </PrivateRoute>
           }
         />
 

@@ -1,6 +1,7 @@
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
-const PUBLIC_ROUTES = ["/auth/login", "/clientes/registrar"];
+const PUBLIC_ROUTES = ["/auth/login", "/clientes/registrar", "/login", "/register"];
+
 
 function safeParseAuth(): { token?: string } | null {
   const authRaw = localStorage.getItem("auth");

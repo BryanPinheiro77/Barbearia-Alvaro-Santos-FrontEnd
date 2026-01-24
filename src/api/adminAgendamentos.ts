@@ -9,6 +9,24 @@ export interface FiltrosAgendamentoAdmin {
   data?: string;
 }
 
+export type FormaPagamentoTipo = "PIX" | "CARTAO" | "DINHEIRO";
+export type FormaPagamentoModo = "PAGAR_NA_HORA"; // admin SEM ONLINE
+
+export type AdminAgendamentoCreateRequest = {
+  clienteId?: number | null;         // opcional (se tiver)
+  clienteNome: string;               // obrigatório
+  clienteTelefone?: string | null;   // opcional
+
+  servicosIds: number[];
+  data: string;                      // "YYYY-MM-DD"
+  horarioInicio: string;             // "HH:mm"
+
+  formaPagamentoTipo: FormaPagamentoTipo;
+  formaPagamentoModo: FormaPagamentoModo; // sempre PAGAR_NA_HORA
+
+  pago?: boolean | null;             // barbeiro marca
+};
+
 export function listarAgendamentosAdmin(filtros?: FiltrosAgendamentoAdmin) {
   const params = new URLSearchParams();
 
@@ -22,6 +40,19 @@ export function listarAgendamentosAdmin(filtros?: FiltrosAgendamentoAdmin) {
   const url = query ? `/admin/agendamentos?${query}` : `/admin/agendamentos`;
 
   return http<Agendamento[]>(url);
+}
+
+export function criarAgendamentoAdmin(payload: AdminAgendamentoCreateRequest) {
+  // garantia: admin não usa online
+  const body: AdminAgendamentoCreateRequest = {
+    ...payload,
+    formaPagamentoModo: "PAGAR_NA_HORA",
+  };
+
+  return http<Agendamento>(`/admin/agendamentos`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export function concluirAgendamentoAdmin(id: number) {
