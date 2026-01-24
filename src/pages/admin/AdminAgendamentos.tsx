@@ -20,6 +20,13 @@ type FiltrosApi = {
   fim?: string;
 };
 
+function formatDateLocal(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export default function AdminAgendamentos() {
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,25 +44,28 @@ export default function AdminAgendamentos() {
     const hoje = new Date();
 
     if (periodo === "HOJE") {
-      const d = hoje.toISOString().split("T")[0];
+      const d = formatDateLocal(hoje);
       return { inicio: d, fim: d };
     }
 
     if (periodo === "SEMANA") {
       const inicioSemana = new Date(hoje);
+      // domingo = 0, segunda = 1...
       inicioSemana.setDate(hoje.getDate() - hoje.getDay());
+
       return {
-        inicio: inicioSemana.toISOString().split("T")[0],
-        fim: hoje.toISOString().split("T")[0],
+        inicio: formatDateLocal(inicioSemana),
+        fim: formatDateLocal(hoje),
       };
     }
 
     if (periodo === "MES") {
       const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
       const ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+
       return {
-        inicio: primeiroDia.toISOString().split("T")[0],
-        fim: ultimoDia.toISOString().split("T")[0],
+        inicio: formatDateLocal(primeiroDia),
+        fim: formatDateLocal(ultimoDia),
       };
     }
 
@@ -72,6 +82,7 @@ export default function AdminAgendamentos() {
 
   function montarFiltrosApi(): FiltrosApi {
     const p = calcularPeriodo();
+
     const filtros: FiltrosApi = {
       status: status || undefined,
       inicio: p.inicio,
@@ -81,6 +92,7 @@ export default function AdminAgendamentos() {
     if (!filtros.status) delete filtros.status;
     if (!filtros.inicio) delete filtros.inicio;
     if (!filtros.fim) delete filtros.fim;
+
     return filtros;
   }
 
@@ -99,6 +111,7 @@ export default function AdminAgendamentos() {
 
       const filtros = montarFiltrosApi();
       const resp = await listarAgendamentosAdmin(filtros);
+
       setAgendamentos(ordenarAgenda(resp));
     } catch (e) {
       console.error(e);
@@ -139,6 +152,7 @@ export default function AdminAgendamentos() {
   const agendamentosFiltrados = useMemo(() => {
     const termo = clienteBusca.trim().toLowerCase();
     if (!termo) return agendamentos;
+
     return agendamentos.filter((a) =>
       (a.clienteNome || "").toLowerCase().includes(termo)
     );

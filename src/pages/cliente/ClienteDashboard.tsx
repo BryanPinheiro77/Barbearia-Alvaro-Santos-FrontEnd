@@ -205,8 +205,8 @@ export default function ClienteDashboard() {
               const total =
                 a.servicos?.length ? a.servicos.reduce((acc, s) => acc + (s.preco ?? 0), 0) : 0;
 
-              // regra: cancela até 5h antes, mesmo pago
-              const { pode: podeCancelarPorRegra, motivo } = getCancelamentoInfo(a, 5);
+              // regra: cancela até 2h antes, mesmo pago
+              const { pode: podeCancelarPorRegra, motivo } = getCancelamentoInfo(a, 2);
               const podeCancelar = a.status !== "CANCELADO" && podeCancelarPorRegra;
 
               const estaCancelando = cancelandoId === a.id;
