@@ -43,7 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     () => [
       { label: "Agenda", path: "/admin/agendamentos" },
       { label: "Dashboard", path: "/admin" },
-      { label: "Criar Agendamento", path: "/admin/agendamentos/novo" },
+      { label: "Agendamento", path: "/admin/agendamentos/novo" },
       { label: "Serviços", path: "/admin/servicos" },
     ],
     []
