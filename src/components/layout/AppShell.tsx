@@ -54,7 +54,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     () => [
       { label: "Relatórios", path: "/admin/relatorios" },
       { label: "Clientes", path: "/admin/clientes" },
-      { label: "Novo", path: "/admin/agendamentos/novo" },
+      { label: "Criar Agendamento", path: "/admin/agendamentos/novo" },
     ],
     []
   );

@@ -9,6 +9,7 @@ import { CalendarPicker } from "../../components/ui/CalendarPicker";
 import * as ServicosApi from "../../api/servicos";
 import { listarHorariosDisponiveis } from "../../api/horarios";
 import * as AdminAgendamentosApi from "../../api/adminAgendamentos";
+import { listarClientesAdmin, type ClienteAdmin } from "../../api/adminClientes";
 
 function brl(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -19,11 +20,17 @@ function isHoje(data: string) {
   if (!data) return false;
   const [yyyy, mm, dd] = data.split("-").map(Number);
   const now = new Date();
-  return yyyy === now.getFullYear() && mm === now.getMonth() + 1 && dd === now.getDate();
+  return (
+    yyyy === now.getFullYear() && mm === now.getMonth() + 1 && dd === now.getDate()
+  );
 }
 
 // util: filtra horários passados se a data selecionada for hoje
-function filtrarHorariosPassadosHoje(data: string, horarios: string[], toleranciaMin = 0) {
+function filtrarHorariosPassadosHoje(
+  data: string,
+  horarios: string[],
+  toleranciaMin = 0
+) {
   if (!isHoje(data)) return horarios;
 
   const now = new Date();
@@ -31,33 +38,59 @@ function filtrarHorariosPassadosHoje(data: string, horarios: string[], toleranci
 
   return horarios.filter((h) => {
     const [hh, min] = h.split(":").map(Number);
-    const dt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, min, 0, 0);
+    const dt = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      hh,
+      min,
+      0,
+      0
+    );
     return dt >= nowWithTol;
   });
 }
 
-export default function NovoAgendamentoAdmin() {
+export default function AdminNovoAgendamento() {
   const navigate = useNavigate();
 
-  // CLIENTE
+  // =========================
+  // CLIENTE (autocomplete)
+  // =========================
   const [clienteNome, setClienteNome] = useState("");
   const [clienteTelefone, setClienteTelefone] = useState("");
 
+  const [clientesDb, setClientesDb] = useState<ClienteAdmin[]>([]);
+  const [clientesLoading, setClientesLoading] = useState(false);
+
+  const [clienteIdSelecionado, setClienteIdSelecionado] = useState<number | null>(
+    null
+  );
+  const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
+
+  // =========================
   // SERVIÇOS
+  // =========================
   const [servicos, setServicos] = useState<ServicosApi.Servico[]>([]);
   const [servicosSelecionados, setServicosSelecionados] = useState<number[]>([]);
 
+  // =========================
   // DATA / HORÁRIO
+  // =========================
   const [data, setData] = useState("");
   const [horarios, setHorarios] = useState<string[]>([]);
   const [horarioSelecionado, setHorarioSelecionado] = useState("");
 
+  // =========================
   // PAGAMENTO (ADMIN: sem ONLINE)
+  // =========================
   const [pagamentoTipo, setPagamentoTipo] =
     useState<AdminAgendamentosApi.FormaPagamentoTipo>("PIX");
   const [pago, setPago] = useState<boolean>(false);
 
+  // =========================
   // Auxiliares
+  // =========================
   const [loadingServicos, setLoadingServicos] = useState(true);
   const [loadingHorarios, setLoadingHorarios] = useState(false);
   const [salvando, setSalvando] = useState(false);
@@ -82,7 +115,9 @@ export default function NovoAgendamentoAdmin() {
     }, 80);
   }
 
+  // =========================
   // Carregar serviços
+  // =========================
   useEffect(() => {
     (async () => {
       try {
@@ -98,13 +133,70 @@ export default function NovoAgendamentoAdmin() {
     })();
   }, []);
 
+  // =========================
+  // Carregar clientes (autocomplete)
+  // =========================
+  useEffect(() => {
+    (async () => {
+      try {
+        setClientesLoading(true);
+        const lista = await listarClientesAdmin();
+        setClientesDb(lista);
+      } catch (e) {
+        console.error(e);
+        // não trava o fluxo; apenas sem autocomplete
+      } finally {
+        setClientesLoading(false);
+      }
+    })();
+  }, []);
+
+  // Se o admin mexer no nome depois de selecionar um cliente, desfaz o vínculo
+  useEffect(() => {
+    if (clienteIdSelecionado == null) return;
+
+    const atual = clientesDb.find((x) => x.id === clienteIdSelecionado);
+    if (!atual) return;
+
+    // se o nome digitado divergir do nome do cliente selecionado, solta o vínculo
+    if (clienteNome.trim() !== (atual.nome || "").trim()) {
+      setClienteIdSelecionado(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clienteNome]);
+
+  const sugestoes = useMemo(() => {
+    const t = clienteNome.trim().toLowerCase();
+    if (t.length < 2) return [];
+
+    return clientesDb
+      .filter((c) => {
+        const nome = (c.nome || "").toLowerCase();
+        const tel = (c.telefone || "").toLowerCase();
+        return nome.includes(t) || tel.includes(t);
+      })
+      .slice(0, 8);
+  }, [clientesDb, clienteNome]);
+
+  function selecionarCliente(c: ClienteAdmin) {
+    setClienteIdSelecionado(c.id);
+    setClienteNome(c.nome || "");
+    setClienteTelefone(c.telefone || "");
+    setMostrarSugestoes(false);
+    setErro(null);
+  }
+
+  // =========================
   // Resets quando muda serviços ou data
+  // =========================
   useEffect(() => {
     setHorarios([]);
     setHorarioSelecionado("");
   }, [servicosSelecionados, data]);
 
-  // Derivados (resumo)
+  // =========================
+  // Resumo
+  // =========================
   const resumo = useMemo(() => {
     const lista = servicos.filter((s) => servicosSelecionados.includes(s.id));
     return {
@@ -114,15 +206,21 @@ export default function NovoAgendamentoAdmin() {
     };
   }, [servicos, servicosSelecionados]);
 
+  // =========================
   // Steps
+  // =========================
   const step1Done = clienteNome.trim().length > 0;
   const step2Done = step1Done && servicosSelecionados.length > 0;
   const step3Done = step2Done && !!data;
   const step4Done = step3Done && !!horarioSelecionado;
-  const step5Done = step4Done; // pagamento sempre disponível
+  const step5Done = step4Done;
 
   const podeConfirmar =
-    step4Done && servicosSelecionados.length > 0 && !!data && !!horarioSelecionado && !salvando;
+    step4Done &&
+    servicosSelecionados.length > 0 &&
+    !!data &&
+    !!horarioSelecionado &&
+    !salvando;
 
   // Auto-scroll quando os steps liberarem
   const prevStep1Done = useRef(false);
@@ -151,10 +249,14 @@ export default function NovoAgendamentoAdmin() {
   }, [step4Done]);
 
   function toggleServico(id: number) {
-    setServicosSelecionados((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setServicosSelecionados((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   }
 
+  // =========================
   // buscar horários automaticamente quando tiver serviços + data
+  // =========================
   useEffect(() => {
     async function carregarHorariosAuto() {
       if (!step3Done) return;
@@ -193,6 +295,9 @@ export default function NovoAgendamentoAdmin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step3Done, data, servicosSelecionados]);
 
+  // =========================
+  // Submit
+  // =========================
   async function confirmarAdmin() {
     if (!podeConfirmar) return;
 
@@ -207,6 +312,10 @@ export default function NovoAgendamentoAdmin() {
       setSalvando(true);
 
       await AdminAgendamentosApi.criarAgendamentoAdmin({
+        // ✅ se selecionou no autocomplete, manda o id para evitar homônimos
+        clienteId: clienteIdSelecionado,
+
+        // mantém nome/telefone também (se não selecionar, o service cria/resolve)
         clienteNome: nome,
         clienteTelefone: clienteTelefone.trim() ? clienteTelefone.trim() : null,
 
@@ -257,20 +366,71 @@ export default function NovoAgendamentoAdmin() {
           <Step
             step={1}
             title="Cliente"
-            subtitle="Informe o nome do cliente (telefone opcional)."
+            subtitle="Digite o nome (vai sugerir clientes cadastrados). Telefone é opcional."
             open={true}
             done={step1Done}
             containerRef={step1Ref}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
+              <div className="relative">
                 <label className="label-dark">Nome do cliente</label>
+
                 <input
                   className="input-dark"
                   value={clienteNome}
-                  onChange={(e) => setClienteNome(e.target.value)}
+                  onChange={(e) => {
+                    setClienteNome(e.target.value);
+                    setMostrarSugestoes(true);
+                  }}
+                  onFocus={() => setMostrarSugestoes(true)}
+                  onBlur={() => {
+                    // fecha depois de um pequeno delay para permitir clique na sugestão
+                    window.setTimeout(() => setMostrarSugestoes(false), 120);
+                  }}
                   placeholder="Ex: João Silva"
                 />
+
+                {mostrarSugestoes && sugestoes.length > 0 && (
+                  <div className="absolute z-20 mt-2 w-full rounded-2xl border border-white/10 bg-black/95 backdrop-blur p-2">
+                    <div className="text-xs text-white/60 px-2 py-1">
+                      Selecione um cliente (evita homônimos)
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      {sugestoes.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()} // evita blur antes do click
+                          onClick={() => selecionarCliente(c)}
+                          className="w-full text-left px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-medium text-white/90 truncate">
+                              {c.nome}
+                            </p>
+                            <p className="text-xs text-white/60 shrink-0">
+                              {c.telefone || "sem telefone"} • #{c.id}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {clientesLoading && (
+                      <div className="text-xs text-white/50 px-2 py-2">
+                        Carregando...
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {clienteIdSelecionado && (
+                  <p className="text-xs text-white/55 mt-2">
+                    Cliente selecionado:{" "}
+                    <strong className="text-white/80">#{clienteIdSelecionado}</strong>
+                  </p>
+                )}
               </div>
 
               <div>
@@ -281,11 +441,15 @@ export default function NovoAgendamentoAdmin() {
                   onChange={(e) => setClienteTelefone(e.target.value)}
                   placeholder="Ex: 11999999999"
                 />
+                <p className="text-xs text-white/55 mt-2">
+                  Se você selecionou um cliente acima, este telefone será preenchido
+                  automaticamente (pode ajustar).
+                </p>
               </div>
             </div>
 
             <p className="text-xs text-white/55 mt-3">
-              Dica: se houver homônimo, o telefone ajuda a vincular ao cadastro correto.
+              Dica: se houver homônimo, selecione pelo telefone/ID na lista.
             </p>
           </Step>
 
@@ -319,7 +483,9 @@ export default function NovoAgendamentoAdmin() {
                       <p className="text-sm text-white/65 mt-1">
                         {s.duracaoMinutos} min • {brl(s.preco)}
                       </p>
-                      {ativo && <p className="text-xs text-[#d9a441] mt-3">Selecionado</p>}
+                      {ativo && (
+                        <p className="text-xs text-[#d9a441] mt-3">Selecionado</p>
+                      )}
                     </button>
                   );
                 })}
@@ -328,7 +494,9 @@ export default function NovoAgendamentoAdmin() {
 
             {resumo.lista.length > 0 && (
               <div className="mt-4 text-sm text-white/75">
-                Total: <strong className="text-white">{brl(resumo.total)}</strong> • {resumo.duracao} min
+                Total:{" "}
+                <strong className="text-white">{brl(resumo.total)}</strong> •{" "}
+                {resumo.duracao} min
               </div>
             )}
           </Step>
@@ -343,7 +511,11 @@ export default function NovoAgendamentoAdmin() {
             containerRef={step3Ref}
           >
             <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <CalendarPicker value={data} onChange={(v) => setData(v)} minDate={new Date()} />
+              <CalendarPicker
+                value={data}
+                onChange={(v) => setData(v)}
+                minDate={new Date()}
+              />
             </div>
           </Step>
 
@@ -359,19 +531,26 @@ export default function NovoAgendamentoAdmin() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
               {horarioSelecionado ? (
                 <p className="text-sm text-white/70">
-                  Selecionado: <strong className="text-white">{horarioSelecionado}</strong>
+                  Selecionado:{" "}
+                  <strong className="text-white">{horarioSelecionado}</strong>
                 </p>
               ) : (
                 <p className="text-sm text-white/70">Selecione um horário abaixo.</p>
               )}
 
-              {loadingHorarios && <p className="text-sm text-white/55">Carregando horários...</p>}
+              {loadingHorarios && (
+                <p className="text-sm text-white/55">Carregando horários...</p>
+              )}
             </div>
 
             {!loadingHorarios && horarios.length === 0 && (
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm font-medium text-white/90">Sem horários disponíveis</p>
-                <p className="text-sm text-white/65 mt-2">Selecione outro dia para ver novos horários.</p>
+                <p className="text-sm font-medium text-white/90">
+                  Sem horários disponíveis
+                </p>
+                <p className="text-sm text-white/65 mt-2">
+                  Selecione outro dia para ver novos horários.
+                </p>
 
                 <div className="mt-4">
                   <button
@@ -426,7 +605,11 @@ export default function NovoAgendamentoAdmin() {
                 <select
                   className="select-dark"
                   value={pagamentoTipo}
-                  onChange={(e) => setPagamentoTipo(e.target.value as AdminAgendamentosApi.FormaPagamentoTipo)}
+                  onChange={(e) =>
+                    setPagamentoTipo(
+                      e.target.value as AdminAgendamentosApi.FormaPagamentoTipo
+                    )
+                  }
                 >
                   <option value="PIX">PIX</option>
                   <option value="CARTAO">Cartão</option>
@@ -444,12 +627,18 @@ export default function NovoAgendamentoAdmin() {
                   onClick={() => setPago((v) => !v)}
                   className={[
                     "rounded-2xl border px-4 py-3 text-left transition w-full",
-                    pago ? "border-[#2bd576]/40 bg-[#2bd576]/10" : "border-white/10 bg-white/5 hover:bg-white/10",
+                    pago
+                      ? "border-[#2bd576]/40 bg-[#2bd576]/10"
+                      : "border-white/10 bg-white/5 hover:bg-white/10",
                   ].join(" ")}
                 >
-                  <p className="font-medium text-white/90">{pago ? "Pago" : "Pendente"}</p>
+                  <p className="font-medium text-white/90">
+                    {pago ? "Pago" : "Pendente"}
+                  </p>
                   <p className="text-sm text-white/65 mt-1">
-                    {pago ? "Agendamento será criado como pago." : "Agendamento será criado como pendente."}
+                    {pago
+                      ? "Agendamento será criado como pago."
+                      : "Agendamento será criado como pendente."}
                   </p>
                 </button>
               </div>
@@ -457,7 +646,10 @@ export default function NovoAgendamentoAdmin() {
 
             <div className="mt-6 flex flex-wrap gap-2">
               <button
-                className={["btn-gold", !podeConfirmar ? "opacity-60 pointer-events-none" : ""].join(" ")}
+                className={[
+                  "btn-gold",
+                  !podeConfirmar ? "opacity-60 pointer-events-none" : "",
+                ].join(" ")}
                 disabled={!podeConfirmar}
                 onClick={confirmarAdmin}
               >
@@ -468,12 +660,20 @@ export default function NovoAgendamentoAdmin() {
                 className="btn-outline"
                 onClick={() => {
                   setErro(null);
+
+                  // cliente
                   setClienteNome("");
                   setClienteTelefone("");
+                  setClienteIdSelecionado(null);
+                  setMostrarSugestoes(false);
+
+                  // agendamento
                   setServicosSelecionados([]);
                   setData("");
                   setHorarios([]);
                   setHorarioSelecionado("");
+
+                  // pagamento
                   setPagamentoTipo("PIX");
                   setPago(false);
                 }}
@@ -484,7 +684,8 @@ export default function NovoAgendamentoAdmin() {
             </div>
 
             <p className="mt-3 text-sm text-white/70">
-              Ao confirmar, o agendamento será criado e você será redirecionado para o painel do admin.
+              Ao confirmar, o agendamento será criado e você será redirecionado
+              para o painel do admin.
             </p>
           </Step>
         </div>
