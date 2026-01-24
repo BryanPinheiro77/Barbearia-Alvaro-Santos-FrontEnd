@@ -118,7 +118,13 @@ export function CalendarPicker({ value, onChange, minDate }: Props) {
 
       <div className="grid grid-cols-7 gap-1 mb-2">
         {weekDays.map((w) => (
-          <div key={w} className="text-xs text-white/55 text-center py-1">
+          <div
+            key={w}
+            className={[
+              "text-xs text-center py-1",
+              w === "Dom" ? "text-white/25" : "text-white/55",
+            ].join(" ")}
+          >
             {w}
           </div>
         ))}
@@ -129,7 +135,10 @@ export function CalendarPicker({ value, onChange, minDate }: Props) {
           if (!cell.date) return <div key={idx} className="h-10" />;
 
           const d = cell.date;
-          const disabled = d.getTime() < min.getTime();
+
+          const isSunday = d.getDay() === 0; // 0 = Domingo
+          const disabled = d.getTime() < min.getTime() || isSunday;
+
           const isSelected = selected ? sameDay(d, selected) : false;
           const isToday = sameDay(d, today);
 
@@ -149,7 +158,7 @@ export function CalendarPicker({ value, onChange, minDate }: Props) {
                   : "",
                 isToday && !isSelected ? "ring-1 ring-white/10" : "",
               ].join(" ")}
-              title={cell.ymd}
+              title={cell.ymd + (isSunday ? " (Domingo indisponível)" : "")}
             >
               {d.getDate()}
             </button>
