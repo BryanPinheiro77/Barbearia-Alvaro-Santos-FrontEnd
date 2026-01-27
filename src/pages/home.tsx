@@ -25,6 +25,14 @@ const TELEFONE = "(11) 98898-6026";
 const WHATSAPP_E164 = "5511988986026";
 const INSTAGRAM_URL = "https://instagram.com/barbeariaalvarosantos";
 
+// ✅ RESULTADOS (public/* -> usar "/arquivo.ext")
+const RESULTADOS: { src: string; alt: string }[] = [
+   { src: "/foto1.jpg", alt: "Corte infantil com degradê" },
+  { src: "/foto2.jpg", alt: "Tranças nagô com finalização" },
+  { src: "/foto3.webp", alt: "Degradê com risquinho" },
+  { src: "/foto4.jpg", alt: "Degradê + barba" },
+];
+
 // ======= Helpers =======
 function hojeISO(): string {
   const d = new Date();
@@ -272,6 +280,8 @@ export default function Landing() {
           </div>
         </section>
 
+        <Resultados />
+
         <About />
         <CTA />
       </main>
@@ -297,6 +307,7 @@ function Header() {
 
         <nav className="hidden md:flex items-center gap-6 text-sm text-white/70">
           <a href="#servicos" className="hover:text-white">Serviços</a>
+          <a href="#resultados" className="hover:text-white">Resultados</a>
           <a href="#sobre" className="hover:text-white">Sobre</a>
           <a href="#app" className="hover:text-white">App</a>
         </nav>
@@ -421,6 +432,64 @@ function Hero(props: { horarios: string[]; loading: boolean; erro: string | null
   );
 }
 
+function Resultados() {
+  return (
+    <section id="resultados" className="py-20 border-t border-white/10">
+      <div className="container-page">
+        <motion.div
+          variants={fadeUpVariants}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true }}
+          transition={{ duration: 0.7, ease: EASE_OUT }}
+          className="text-center mb-12"
+        >
+          <span className="tag">Resultados</span>
+          <h2 className="font-display text-4xl md:text-5xl mt-4">
+            Resultados <span className="title-gradient">em destaque</span>
+          </h2>
+          <p className="text-white/70 mt-4 max-w-2xl mx-auto">
+            Alguns cortes e acabamentos feitos pelo Álvaro. Escolha o seu estilo e agende online.
+          </p>
+        </motion.div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {RESULTADOS.map((img, i) => (
+            <motion.div
+              key={`${img.src}-${i}`}
+              variants={fadeUpVariants}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, ease: EASE_OUT, delay: i * 0.06 }}
+              className="card p-0 overflow-hidden group"
+            >
+              <div className="relative aspect-[4/5]">
+                <img
+                  src={img.src}
+                  alt={img.alt}
+                  loading="lazy"
+                  className="absolute inset-0 h-full w-full object-cover transform group-hover:scale-[1.03] transition duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+                <div className="absolute bottom-3 left-3 right-3">
+                  <div className="text-white/90 text-sm">{img.alt}</div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
+        <div className="mt-10 flex justify-center">
+          <Link to="/login" className="btn-gold">
+            Agendar agora
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function About() {
   return (
     <section id="sobre" className="py-20 border-t border-white/10">
@@ -486,21 +555,11 @@ function About() {
             </div>
 
             <div className="mt-6 flex flex-col gap-3">
-              <a
-                className="btn-outline w-full"
-                href={`https://wa.me/${WHATSAPP_E164}`}
-                target="_blank"
-                rel="noreferrer"
-              >
+              <a className="btn-outline w-full" href={`https://wa.me/${WHATSAPP_E164}`} target="_blank" rel="noreferrer">
                 <MessageCircle className="h-4 w-4 mr-2" /> Chamar no WhatsApp
               </a>
 
-              <a
-                className="btn-outline w-full"
-                href={INSTAGRAM_URL}
-                target="_blank"
-                rel="noreferrer"
-              >
+              <a className="btn-outline w-full" href={INSTAGRAM_URL} target="_blank" rel="noreferrer">
                 <Instagram className="h-4 w-4 mr-2" /> Ver Instagram
               </a>
 
@@ -534,6 +593,7 @@ function Footer() {
         </div>
         <div className="flex items-center gap-4 text-white/70">
           <a href="#servicos" className="hover:text-white text-sm">Serviços</a>
+          <a href="#resultados" className="hover:text-white text-sm">Resultados</a>
           <a href="#sobre" className="hover:text-white text-sm">Sobre</a>
           <a href="#app" className="hover:text-white text-sm">App</a>
         </div>
