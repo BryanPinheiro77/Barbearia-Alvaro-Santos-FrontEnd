@@ -449,7 +449,7 @@ function Resultados() {
             Resultados <span className="title-gradient">em destaque</span>
           </h2>
           <p className="text-white/70 mt-4 max-w-2xl mx-auto">
-            Alguns cortes e acabamentos feitos pelo Álvaro. Escolha o seu estilo e agende online.
+            Alguns cortes feitos pelo Álvaro. Escolha o seu estilo e agende online.
           </p>
         </motion.div>
 
