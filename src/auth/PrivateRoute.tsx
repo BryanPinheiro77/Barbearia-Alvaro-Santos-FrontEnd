@@ -9,8 +9,10 @@ type Props = PropsWithChildren<{
 }>;
 
 export function PrivateRoute({ children, allow }: Props) {
-  const { user } = useAuth();
+  const { user, checking, sessionError } = useAuth();
   const location = useLocation();
+  if (checking) return <p role="status">Verificando sessão...</p>;
+  if (user && sessionError) return <p role="alert">{sessionError}</p>;
 
   // 1) não logado
   if (!user) {
