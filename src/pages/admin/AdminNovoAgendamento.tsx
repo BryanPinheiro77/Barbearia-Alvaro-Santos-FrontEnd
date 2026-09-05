@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSubmission } from "../../hooks/useSubmission";
+import { finishBooking } from "../../api/bookingKey";
 import { useNavigate } from "react-router-dom";
 import type { RefObject } from "react";
 
@@ -93,7 +95,8 @@ export default function AdminNovoAgendamento() {
   // =========================
   const [loadingServicos, setLoadingServicos] = useState(true);
   const [loadingHorarios, setLoadingHorarios] = useState(false);
-  const [salvando, setSalvando] = useState(false);
+  const submission = useSubmission();
+  const salvando = submission.pending;
   const [erro, setErro] = useState<string | null>(null);
 
   // Refs de scroll dos steps
@@ -307,9 +310,9 @@ export default function AdminNovoAgendamento() {
       return;
     }
 
+    if (!submission.begin()) return;
     try {
       setErro(null);
-      setSalvando(true);
 
       await AdminAgendamentosApi.criarAgendamentoAdmin({
         // ✅ se selecionou no autocomplete, manda o id para evitar homônimos
@@ -329,12 +332,13 @@ export default function AdminNovoAgendamento() {
         pago,
       });
 
+      finishBooking("admin");
       navigate("/admin", { replace: true });
     } catch (e) {
       console.error(e);
       setErro("Erro ao criar agendamento.");
     } finally {
-      setSalvando(false);
+      submission.end();
     }
   }
 
@@ -361,7 +365,7 @@ export default function AdminNovoAgendamento() {
           </div>
         )}
 
-        <div className="card">
+        <fieldset className="card min-w-0" disabled={salvando} aria-busy={salvando}>
           {/* STEP 1 - CLIENTE */}
           <Step
             step={1}
@@ -688,7 +692,7 @@ export default function AdminNovoAgendamento() {
               para o painel do admin.
             </p>
           </Step>
-        </div>
+        </fieldset>
       </div>
     </AppShell>
   );
