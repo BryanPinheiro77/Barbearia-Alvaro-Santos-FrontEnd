@@ -1,7 +1,7 @@
 import { http } from "./http";
 
 export type LoginResponse = {
-  id: number;
+  id?: number;
   token: string;
   nome: string;
   tipo: "ADMIN" | "CLIENTE";

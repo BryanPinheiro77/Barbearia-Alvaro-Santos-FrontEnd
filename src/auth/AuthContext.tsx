@@ -1,60 +1,42 @@
-import { createContext, useContext, useState } from "react";
-
-type UserType = "CLIENTE" | "ADMIN";
-
-export interface AuthData {
-  id: number;
-  token: string;
-  nome: string;
-  tipo: UserType;
-}
-
+import { createContext, useContext, useEffect, useState } from "react";
+import { logoutRequest, refreshSession } from "../api/http";
+import { readSession, writeSession, tokenExpired, SESSION_EVENT } from "./session";
+import type { AuthData } from "./session";
+export type { AuthData } from "./session";
 interface AuthContextType {
   user: AuthData | null;
+  checking: boolean;
+  sessionError: string | null;
   login: (data: AuthData) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
-
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
-
-function readAuthFromStorage(): AuthData | null {
-  const stored = localStorage.getItem("auth");
-  if (!stored) return null;
-
-  try {
-    const parsed = JSON.parse(stored) as AuthData;
-    // validações mínimas para evitar lixo no storage
-    if (!parsed?.token || !parsed?.tipo) {
-      localStorage.removeItem("auth");
-      return null;
-    }
-    return parsed;
-  } catch {
-    localStorage.removeItem("auth");
-    return null;
-  }
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthData | null>(() => readAuthFromStorage());
-
-  function login(data: AuthData) {
-    localStorage.setItem("auth", JSON.stringify(data));
-    setUser(data);
+  const [user, setUser] = useState(readSession);
+  const [checking, setChecking] = useState(() => {
+    const value = readSession();
+    return !!value && tokenExpired(value.token);
+  });
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  useEffect(() => {
+    const sync = () => { setUser(readSession()); setSessionError(null); };
+    window.addEventListener(SESSION_EVENT, sync);
+    window.addEventListener("storage", sync);
+    const current = readSession();
+    if (current && tokenExpired(current.token)) {
+      refreshSession().catch(() => {
+        if (readSession()) setSessionError("Não foi possível verificar sua sessão. Recarregue a página para tentar novamente.");
+      }).finally(() => setChecking(false));
+    }
+    return () => {
+      window.removeEventListener(SESSION_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+  async function logout() {
+    try { await logoutRequest(); }
+    catch { setSessionError("Você saiu neste dispositivo, mas não foi possível revogar a sessão no servidor."); }
   }
-
-  function logout() {
-    localStorage.removeItem("auth");
-    setUser(null);
-  }
-
-  return (
-    <AuthContext.Provider value={{ user, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{ user, checking, sessionError, login: writeSession, logout }}>{children}</AuthContext.Provider>;
 }
-
-export function useAuth() {
-  return useContext(AuthContext);
-}
+export function useAuth() { return useContext(AuthContext); }
