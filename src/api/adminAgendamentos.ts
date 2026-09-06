@@ -1,4 +1,5 @@
 import { http } from "./http";
+import { bookingKey } from "./bookingKey";
 import type { Agendamento } from "./agendamentos";
 
 export interface FiltrosAgendamentoAdmin {
@@ -51,6 +52,7 @@ export function criarAgendamentoAdmin(payload: AdminAgendamentoCreateRequest) {
 
   return http<Agendamento>(`/admin/agendamentos`, {
     method: "POST",
+    headers: { "Idempotency-Key": bookingKey("admin", body) },
     body: JSON.stringify(body),
   });
 }

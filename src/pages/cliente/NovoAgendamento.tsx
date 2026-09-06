@@ -11,7 +11,8 @@ import * as ServicosApi from "../../api/servicos";
 import { listarHorariosDisponiveis } from "../../api/horarios";
 import * as CriarAgendamentoApi from "../../api/criarAgendamento";
 import * as PagamentosApi from "../../api/pagamentos";
-import * as AgendamentosApi from "../../api/agendamentos";
+import { useSubmission } from "../../hooks/useSubmission";
+import { finishBooking } from "../../api/bookingKey";
 
 type CheckoutStatus = "IDLE" | "REDIRECIONANDO" | "AGUARDANDO_PAGAMENTO" | "PAGO";
 
@@ -49,6 +50,7 @@ function filtrarHorariosPassadosHoje(data: string, horarios: string[], toleranci
 export default function NovoAgendamento() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const submission = useSubmission();
 
   // SERVIÇOS
   const [servicos, setServicos] = useState<ServicosApi.Servico[]>([]);
@@ -287,6 +289,7 @@ export default function NovoAgendamento() {
       return;
     }
 
+    if (!submission.begin()) return;
     try {
       setErro(null);
 
@@ -300,10 +303,13 @@ export default function NovoAgendamento() {
       });
 
       limparPersistenciaPagamento();
+      finishBooking("cliente");
       navigate("/cliente", { replace: true });
     } catch (e) {
       console.error(e);
-      setErro("Erro ao confirmar agendamento.");
+      setErro("Não foi possível confirmar. Verifique seus agendamentos ou tente novamente; a mesma tentativa não criará outra reserva.");
+    } finally {
+      submission.end();
     }
   }
 
@@ -322,6 +328,7 @@ export default function NovoAgendamento() {
     }
 
     let agendamentoCriadoId: number | null = null;
+    if (!submission.begin()) return;
 
     try {
       setErro(null);
@@ -383,17 +390,14 @@ export default function NovoAgendamento() {
     } catch (e) {
       console.error(e);
 
-      if (agendamentoCriadoId) {
-        try {
-          await AgendamentosApi.cancelarAgendamento(agendamentoCriadoId);
-        } catch (errCancel) {
-          console.error("Falha ao cancelar agendamento após erro no pagamento:", errCancel);
-        }
-      }
-
-      setErro("Erro ao iniciar pagamento online.");
-      setCheckoutStatus("IDLE");
+      // A timeout can occur after the payment was created. Do not cancel or recreate blindly.
+      setErro(agendamentoCriadoId
+        ? "O agendamento foi criado, mas não foi possível confirmar o pagamento. Confira Meus agendamentos antes de tentar pagar novamente."
+        : "Não foi possível iniciar o agendamento. Tente novamente.");
+      setCheckoutStatus(agendamentoCriadoId ? "AGUARDANDO_PAGAMENTO" : "IDLE");
       pararPolling();
+    } finally {
+      submission.end();
     }
   }
 
@@ -449,7 +453,7 @@ export default function NovoAgendamento() {
           </div>
         )}
 
-        <div className="card">
+        <fieldset className="card min-w-0" disabled={submission.pending} aria-busy={submission.pending}>
           {/* STEP 1 */}
           <Step
             step={1}
@@ -677,10 +681,11 @@ export default function NovoAgendamento() {
                     "btn-gold",
                     !podeConfirmar ? "opacity-60 pointer-events-none" : "",
                   ].join(" ")}
-                  disabled={!podeConfirmar}
+                  disabled={!podeConfirmar || submission.pending}
+                  aria-busy={submission.pending}
                   onClick={confirmarAgendamentoPagarNaHora}
                 >
-                  Confirmar agendamento
+                  {submission.pending ? "Agendando..." : "Confirmar agendamento"}
                 </button>
 
                 <p className="mt-3 text-sm text-white/70">
@@ -699,14 +704,14 @@ export default function NovoAgendamento() {
                       !podeConfirmar ? "opacity-60 pointer-events-none" : "",
                     ].join(" ")}
                     onClick={iniciarPagamentoOnline}
-                    disabled={!podeConfirmar}
+                    disabled={!podeConfirmar || submission.pending}
                   >
                     Ir para pagamento
                   </button>
                 )}
 
                 {checkoutStatus === "REDIRECIONANDO" && (
-                  <p className="text-sm text-white/70 mt-2">Preparando pagamento...</p>
+                  <button className="btn-gold" disabled aria-busy="true">Preparando pagamento...</button>
                 )}
 
                 {checkoutStatus === "AGUARDANDO_PAGAMENTO" && (
@@ -760,18 +765,17 @@ export default function NovoAgendamento() {
                     )}
 
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <button className="btn-outline" onClick={verificarStatusAgora}>
+                      <button className="btn-outline" onClick={verificarStatusAgora} disabled={!pagamentoId}>
                         Verificar status
                       </button>
 
                       <button
                         className="btn-outline"
                         onClick={() => {
-                          limparPagamentoUi();
-                          setErro(null);
+                          navigate("/cliente");
                         }}
                       >
-                        Voltar
+                        Meus agendamentos
                       </button>
                     </div>
                   </div>
@@ -792,7 +796,7 @@ export default function NovoAgendamento() {
               </div>
             )}
           </Step>
-        </div>
+        </fieldset>
       </div>
     </AppShell>
   );

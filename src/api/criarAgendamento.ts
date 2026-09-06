@@ -1,4 +1,5 @@
 import { http } from "./http";
+import { bookingKey } from "./bookingKey";
 
 export type FormaPagamentoTipo = "PIX" | "CARTAO" | "DINHEIRO";
 export type FormaPagamentoModo = "ONLINE" | "PAGAR_NA_HORA";
@@ -19,6 +20,7 @@ export interface CriarAgendamentoResponse {
 export function criarAgendamento(payload: CriarAgendamentoRequest) {
   return http<CriarAgendamentoResponse>("/agendamentos", {
     method: "POST",
+    headers: { "Idempotency-Key": bookingKey("cliente", payload) },
     body: JSON.stringify(payload),
   });
 }
